@@ -2,53 +2,264 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Context-Aware QA Agent Demo</title>
-<script type="module">
-import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js';
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visual AI Agent Demo</title>
 
-let qaPipeline = null;
+<!-- Particles.js -->
+<script src="https://cdn.jsdelivr.net/npm/particles.js"></script>
+<!-- MediaPipe Face Detection -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
-async function loadPipeline() {
-    try {
-        qaPipeline = await pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad');
-        document.getElementById('status').textContent = "Model loaded ✅";
-    } catch (err) {
-        console.error(err);
-        document.getElementById('status').textContent = "Failed to load model";
-    }
+<style>
+/* CVless Dark Theme */
+:root {
+  --bg:#0d1117;
+  --card:#161b22;
+  --accent:#4cc9f0;
+  --muted:#8b949e;
 }
 
-async function askQuestion() {
-    const qEl = document.getElementById('question');
-    const cEl = document.getElementById('context');
-    const aEl = document.getElementById('answer');
-
-    const question = (qEl.value || "").trim();
-    const context = (cEl.value || "").trim();
-
-    if (!qaPipeline) return alert("Model not loaded yet!");
-    if (!question) return alert("Enter a question.");
-
-    aEl.textContent = "Processing...";
-
-    try {
-        const output = await qaPipeline({ question, context });
-        aEl.textContent = output.answer;
-    } catch (err) {
-        console.error(err);
-        aEl.textContent = "Error: " + err;
-    }
+body {
+  margin:0;
+  padding:0;
+  font-family:'Inter', sans-serif;
+  background: var(--bg);
+  color:#e6edf3;
+  overflow-x:hidden;
 }
 
-window.addEventListener('DOMContentLoaded', loadPipeline);
-</script>
+#particles-js {
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  z-index:-1;
+}
+
+h1 {
+  text-align:center;
+  margin-top:30px;
+  font-size:2rem;
+  color:var(--accent);
+  animation: fadeInDown 1s ease-out;
+}
+
+#explanation {
+  text-align:center;
+  color:var(--muted);
+  font-size:1.1rem;
+  margin-top:10px;
+  animation: fadeIn 1.2s ease-out;
+}
+
+.container {
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  gap:40px;
+  flex-wrap:wrap;
+  padding:30px 20px;
+  animation: fadeInUp 1.4s ease-out;
+}
+
+.card {
+  background: var(--card);
+  border-radius:16px;
+  padding:20px;
+  box-shadow:0 8px 30px rgba(0,0,0,0.6);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+
+#cameraWrapper {
+  position:relative;
+  width:640px;
+  height:480px;
+  border-radius:12px;
+  overflow:hidden;
+  box-shadow:0 0 20px rgba(0,0,0,0.5);
+}
+
+video#webcam {
+  width:640px;
+  height:480px;
+  border-radius:12px;
+}
+
+canvas {
+  position:absolute;
+  top:0; left:0;
+  width:640px;
+  height:480px;
+  border-radius:12px;
+}
+
+iframe {
+  width:600px;
+  height:480px;
+  border-radius:12px;
+  border:2px solid var(--muted);
+  background:#fff;
+}
+
+button {
+  margin-top:15px;
+  padding:12px 24px;
+  font-size:16px;
+  font-weight:700;
+  border:none;
+  border-radius:12px;
+  cursor:pointer;
+  background:linear-gradient(135deg,var(--accent),#1f6feb);
+  color:#fff;
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+button:hover {
+  transform: scale(1.05);
+  box-shadow:0 0 20px rgba(76,202,240,0.6);
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from { opacity:0; transform:translateY(20px); }
+  to { opacity:1; transform:translateY(0); }
+}
+@keyframes fadeInDown {
+  from { opacity:0; transform:translateY(-20px); }
+  to { opacity:1; transform:translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity:0; } to { opacity:1; }
+}
+</style>
 </head>
+
 <body>
-<h1>Context-Aware QA Agent Demo</h1>
-<div id="status">Loading model...</div>
-<textarea id="context" placeholder="Context (optional)"></textarea><br>
-<textarea id="question" placeholder="Your question"></textarea><br>
-<button onclick="askQuestion()">Ask</button>
-<div id="answer" style="margin-top:12px; background:#eee; padding:8px; border-radius:8px;"></div>
+<div id="particles-js"></div>
+
+<h1>Visual AI Agent Demo</h1>
+
+<div class="card" style="max-width:800px; margin:20px auto; text-align:left; padding:20px; animation: fadeIn 1s ease-out;">
+  <h2 style="color: var(--accent); margin-bottom:10px;">What is a Visual AI Agent?</h2>
+  <p style="color: var(--muted); line-height:1.5;">
+    A <strong>Visual AI Agent</strong> is a system that can perceive visual inputs such as images or live video streams, analyze them using computer vision models, and take intelligent actions based on the analysis. These agents combine AI techniques like object detection, face recognition, and scene understanding to interpret visual data in real time.
+  </p>
+
+  <h2 style="color: var(--accent); margin-bottom:10px;">About this Demo</h2>
+  <p style="color: var(--muted); line-height:1.5;">
+    This demo shows a visual AI agent that detects faces in your webcam feed and uses the detected face to demonstrate a step-by-step exploration of data science concepts. Once a face is detected, the agent pauses the video and guides you through a series of searches, ultimately opening the relevant Wikipedia page for the selected concept.
+  </p>
+</div>
+  
+<div id="explanation">Waiting for face detection...</div>
+
+<div class="container">
+  <div class="card">
+    <div id="cameraWrapper">
+      <video id="webcam" autoplay playsinline></video>
+      <canvas id="overlay" width="640" height="480"></canvas>
+    </div>
+    <button id="restartButton">Restart Camera</button>
+  </div>
+
+  <div class="card">
+    <iframe id="resultsFrame" src="about:blank" sandbox="allow-scripts allow-same-origin"></iframe>
+  </div>
+</div>
+
+<script>
+// Particles.js
+particlesJS("particles-js", {
+  particles: { number:{value:70}, color:{value:"#4cc9f0"}, shape:{type:"circle"}, size:{value:3}, line_linked:{enable:true,distance:140,color:"#4cc9f0"}, move:{enable:true,speed:1} },
+  interactivity:{ events:{ onhover:{ enable:true, mode:"repulse" } } }
+});
+
+const video=document.getElementById('webcam');
+const canvas=document.getElementById('overlay');
+const ctx=canvas.getContext('2d');
+const iframe=document.getElementById('resultsFrame');
+const restartBtn=document.getElementById('restartButton');
+const explanation=document.getElementById('explanation');
+
+let camera=null;
+let detectedOnce=false;
+let pausedFrame=null;
+
+const dsTerms=["Data science","Machine learning","Artificial intelligence","Deep learning",
+"Neural networks","Big data","Statistics","Predictive analytics",
+"Natural language processing","Computer vision","Reinforcement learning",
+"Supervised learning","Unsupervised learning","Clustering","Regression analysis"];
+
+function getRandomTerm(){ return dsTerms[Math.floor(Math.random()*dsTerms.length)]; }
+
+// MediaPipe Face Detection
+const faceDetection=new FaceDetection({ locateFile:(file)=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`});
+faceDetection.setOptions({ model:'short', minDetectionConfidence:0.5 });
+
+faceDetection.onResults(results=>{
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+
+  results.detections.forEach(d=>{
+    const box=d.boundingBox;
+    ctx.strokeStyle='lime';
+    ctx.lineWidth=3;
+    ctx.strokeRect(box.xCenter-box.width/2, box.yCenter-box.height/2, box.width, box.height);
+  });
+
+  if(results.detections.length>0 && !detectedOnce){
+    detectedOnce=true;
+    pausedFrame=ctx.getImageData(0,0,canvas.width,canvas.height);
+    stopCamera();
+    runDemoSteps();
+  } else if(pausedFrame){
+    ctx.putImageData(pausedFrame,0,0);
+  }
+});
+
+function startCamera(){
+  detectedOnce=false;
+  pausedFrame=null;
+  explanation.textContent="Waiting for face detection...";
+  camera=new Camera(video,{onFrame:async()=>{await faceDetection.send({image:video});}, width:640,height:480});
+  camera.start();
+}
+
+function stopCamera(){ if(camera){camera.stop();camera=null;} }
+
+async function runDemoSteps(){
+  const term=getRandomTerm();
+  explanation.textContent=`Step 1: Face detected. Pausing camera...`;
+  await new Promise(r=>setTimeout(r,4000));
+
+  explanation.textContent=`Step 2: Searching Google for "${term}" (Wikipedia only)...`;
+  const searchUrl=`https://www.google.com/search?q=${encodeURIComponent(term)}+site:en.wikipedia.org`;
+
+  // Fetch HTML results
+  try {
+    const resp=await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`);
+    const data=await resp.json();
+    const html=data.contents;
+
+    // Extract first Wikipedia link
+    const match=html.match(/https?:\/\/en\.wikipedia\.org\/wiki\/[^\"]+/);
+    if(match){
+      const wikiUrl=match[0];
+      explanation.textContent=`Step 3: Opening Wikipedia page: ${wikiUrl}`;
+      iframe.src=wikiUrl;
+    } else {
+      explanation.textContent="⚠️ No Wikipedia link found. Showing search results instead.";
+      iframe.src=searchUrl;
+    }
+  } catch(err){
+    explanation.textContent="❌ Error fetching Google results. Showing fallback Wikipedia page.";
+    iframe.src=`https://en.wikipedia.org/wiki/${encodeURIComponent(term.replace(/ /g,'_'))}`;
+  }
+}
+
+restartBtn.addEventListener('click', startCamera);
+startCamera();
+</script>
 </body>
 </html>
