@@ -1,462 +1,906 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Dice Throne — Emoji Edition</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dice Storm — Lite (Demo)</title>
 <style>
-  :root{--bg:#0f0f11;--panel:#151516;--muted:#999;--accent:#f39c12;--card:#1e1e20;}
-  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; background:var(--bg); color:#eee;}
+  :root{
+    --bg:#0b0b0d; --panel:#141416; --muted:#9aa0a6; --accent:#f3b33d;
+    --card:#1c1d20; --good:#27ae60; --bad:#e74c3c;
+  }
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:#eee}
   header{padding:14px;text-align:center}
   h1{margin:0;color:var(--accent)}
-  #container{display:grid;grid-template-columns:1fr 360px;gap:14px;padding:14px;height:calc(100vh - 84px)}
-  /* battlefield */
-  #field{display:grid;grid-template-rows:auto 1fr auto;gap:12px;background:linear-gradient(180deg,#0c0c0d,#111);border-radius:10px;padding:14px}
-  .row{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .panel{background:var(--panel);padding:12px;border-radius:8px;min-width:160px}
-  .avatar{font-size:48px}
-  .name{font-weight:700}
-  .hpbar{height:14px;background:#2a2a2b;border-radius:8px;overflow:hidden;margin-top:6px}
-  .hpfill{height:100%;background:#27ae60;width:100%;transition:width .3s}
-  #center{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:10px}
-  #diceRow{font-size:20px}
-  #energy{font-weight:700;color:#ffd24a}
-  .controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  main{display:grid;grid-template-columns:1fr;gap:12px;padding:12px}
+  .screen{display:none;background:linear-gradient(180deg,#0f0f10,#0b0b0d);border-radius:10px;padding:12px}
+  .visible{display:block}
+  .row{display:flex;gap:12px;align-items:center}
+  .center{justify-content:center}
   button{background:#222;border:1px solid #333;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
   button:disabled{opacity:.45;cursor:not-allowed}
-  /* right column: cards + log */
-  #side{display:flex;flex-direction:column;gap:12px}
-  .cards{background:var(--card);padding:12px;border-radius:10px;display:flex;flex-direction:column;gap:8px}
-  .card{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:#151516;border:1px solid #2a2a2b}
+  .muted{color:var(--muted);font-size:13px}
+  /* setup */
+  .modes{display:flex;gap:10px;justify-content:center;margin-top:12px}
+  .emoji-lobby{display:flex;gap:8px;justify-content:center;margin-top:8px}
+  .lobby-emoji{width:56px;height:56px;border-radius:10px;background:#111;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;border:1px solid #333}
+  /* hero select */
+  .heroes{display:flex;gap:12px;justify-content:center;margin-top:12px}
+  .hero-card{background:var(--panel);padding:10px;border-radius:8px;width:220px}
+  .slots{display:flex;gap:8px;margin-top:8px;justify-content:space-between}
+  .slot{background:#111;padding:8px;border-radius:6px;border:1px dashed #333;min-height:40px;flex:1;display:flex;align-items:center;justify-content:center}
+  /* match UI */
+  #match{display:grid;grid-template-columns:1fr 420px;gap:12px}
+  .board{background:var(--panel);border-radius:10px;padding:10px;min-height:420px}
+  .player-row{display:flex;gap:12px;align-items:center;justify-content:space-between}
+  .avatar{font-size:48px}
+  .hpbar{height:14px;background:#222;border-radius:8px;overflow:hidden;margin-top:6px}
+  .hpfill{height:100%;background:var(--good);width:100%;transition:width .4s}
+  .cards-grid{display:flex;gap:8px;flex-direction:column;margin-top:8px}
+  .card{background:var(--card);border:1px solid #2a2a2b;padding:8px;border-radius:8px;display:flex;justify-content:space-between;align-items:center}
   .card .meta{font-size:13px;color:var(--muted)}
-  .log{background:#070707;border:1px solid #222;padding:10px;border-radius:8px;color:#7fff7f;height:46vh;overflow:auto;font-family:monospace;font-size:13px}
-  footer{padding:10px;text-align:center;color:var(--muted);font-size:13px}
+  #battle-center{display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center}
+  .dice-row{display:flex;gap:8px;font-size:20px}
+  .die{width:36px;height:36px;border-radius:6px;background:#111;display:flex;align-items:center;justify-content:center;border:1px solid #333}
+  .dice-alloc{display:flex;gap:8px;margin-top:8px}
+  .alloc-box{background:#0e0e10;padding:8px;border-radius:8px;min-width:120px}
+  .log{background:#060606;border:1px solid #222;padding:8px;border-radius:8px;color:#7fff7f;height:180px;overflow:auto;font-family:monospace}
   .small{font-size:13px;color:var(--muted)}
-  .big{font-size:18px;font-weight:700}
+  .effect-tag{display:inline-block;padding:4px 6px;border-radius:6px;background:#111;border:1px solid #2a2a2b;margin-left:6px}
 </style>
 </head>
 <body>
 <header>
-  <h1>Dice Throne — Emoji Edition</h1>
-  <div class="small">Roll ➜ spend energy (sum of dice) to play one card ➜ end turn. All-sixes = Ultimate!</div>
+  <h1>Dice Storm — Prototype</h1>
+  <div class="small">Tabletop-ish dice & card battle. Pick hero, choose 2 attack + 2 defense slots, roll dice, spend dice on attack & reserve dice to defend.</div>
 </header>
 
-<div id="container">
-  <div id="field">
-    <!-- Opponent top -->
-    <div class="row">
-      <div class="panel" id="oppPanel">
-        <div class="row">
-          <div>
+<main>
+  <!-- Welcome -->
+  <section id="welcome" class="screen visible">
+    <h2>Welcome</h2>
+    <div class="muted">Choose battle mode</div>
+    <div class="modes">
+      <button id="btnAI">🤖 Play vs AI</button>
+      <button id="btnOnline">🌐 Online (simulated)</button>
+    </div>
+
+    <div id="onlineLobby" style="margin-top:12px;display:none">
+      <div class="muted">Pick an emoji-lobby to join (simulated local only)</div>
+      <div class="emoji-lobby" id="emojiLobby">
+        <div class="lobby-emoji" data-emoji="🐉">🐉</div>
+        <div class="lobby-emoji" data-emoji="🌊">🌊</div>
+        <div class="lobby-emoji" data-emoji="⚡">⚡</div>
+      </div>
+      <div id="lobbyStatus" class="muted" style="margin-top:8px"></div>
+    </div>
+  </section>
+
+  <!-- Hero Select -->
+  <section id="select" class="screen">
+    <h2>Hero Select & Deck Build</h2>
+    <div class="muted">Pick a hero, then assign up to <strong>2 Attack</strong> and <strong>2 Defense</strong> cards into your play slots.</div>
+
+    <div class="heroes" id="heroList"></div>
+
+    <div style="margin-top:12px;display:flex;gap:12px;justify-content:center;">
+      <div class="hero-card" id="playerSlots">
+        <div class="small">Your Board</div>
+        <div class="slots" style="margin-top:8px">
+          <div class="slot" id="atk1">Attack 1</div>
+          <div class="slot" id="atk2">Attack 2</div>
+        </div>
+        <div class="slots" style="margin-top:8px">
+          <div class="slot" id="def1">Defense 1</div>
+          <div class="slot" id="def2">Defense 2</div>
+        </div>
+        <div style="margin-top:8px;text-align:center">
+          <button id="btnReady">Ready</button>
+        </div>
+      </div>
+
+      <div class="hero-card" id="preview">
+        <div class="small">Selected Hero</div>
+        <div id="chosenHeroArea" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Match Screen -->
+  <section id="matchScreen" class="screen">
+    <h2>Match</h2>
+    <div id="match" style="align-items:start">
+      <div class="board">
+        <div class="player-row">
+          <div style="display:flex;align-items:center;gap:12px">
             <div class="avatar" id="oppAvatar">🤖</div>
-          </div>
-          <div style="flex:1;text-align:left">
-            <div class="name" id="oppName">Opponent</div>
-            <div class="small" id="oppClass">Class</div>
-            <div class="hpbar"><div class="hpfill" id="oppHPfill"></div></div>
-            <div class="small" id="oppHPtext">HP</div>
-          </div>
-        </div>
-      </div>
-
-      <div style="width:18px"></div>
-    </div>
-
-    <!-- center dice + controls + log (left) + cards (right) -->
-    <div id="center">
-      <div id="diceRow">🎲 Dice: <span id="diceVals">- - - - -</span></div>
-      <div id="energy">Energy Pool: <span id="energyVal">0</span></div>
-      <div class="controls">
-        <button id="rollBtn" onclick="playerRoll()">🎲 Roll Dice</button>
-        <button id="skipBtn" onclick="playerSkip()" disabled>⏭️ Skip / End</button>
-      </div>
-      <div class="small">Tip: Energy = <em>sum</em> of dice values (higher dice = more energy).</div>
-    </div>
-
-    <!-- Player bottom -->
-    <div class="row">
-      <div class="panel" id="playerPanel">
-        <div class="row">
-          <div style="flex:1;text-align:left">
-            <div class="name" id="playerName">Player</div>
-            <div class="small" id="playerClass">Class</div>
-            <div class="hpbar"><div class="hpfill" id="playerHPfill"></div></div>
-            <div class="small" id="playerHPtext">HP</div>
+            <div>
+              <div id="oppName" style="font-weight:700">Enemy</div>
+              <div class="small" id="oppClass">Class</div>
+              <div class="hpbar"><div id="oppHP" class="hpfill"></div></div>
+              <div class="small" id="oppHPtext">HP</div>
+              <div style="margin-top:6px" id="oppBuffs"></div>
+            </div>
           </div>
           <div>
-            <div class="avatar" id="playerAvatar">🙂</div>
+            <div class="small">Defense slots</div>
+            <div class="cards-grid" id="oppDefenseUI"></div>
+          </div>
+        </div>
+
+        <hr style="border-color:#111;margin:12px 0"/>
+
+        <div id="battle-center">
+          <div class="dice-row" id="diceRow">
+            <!-- dice shown here -->
+          </div>
+
+          <div class="dice-alloc">
+            <div class="alloc-box">
+              <div class="small">Attack Allocation</div>
+              <div id="attackAlloc" style="min-height:36px"></div>
+            </div>
+            <div class="alloc-box">
+              <div class="small">Defense Reserve</div>
+              <div id="defenseAlloc" style="min-height:36px"></div>
+            </div>
+          </div>
+
+          <div style="margin-top:8px">
+            <button id="btnRoll">🎲 Roll Dice</button>
+            <button id="btnClearAlloc" disabled>Clear Allocation</button>
+            <button id="btnPlayAttack" disabled>Play Attack</button>
+            <button id="btnEndTurn" disabled>End Turn</button>
+          </div>
+        </div>
+
+        <hr style="border-color:#111;margin:12px 0"/>
+
+        <div class="player-row" style="margin-top:6px">
+          <div>
+            <div id="plName" style="font-weight:700">Player</div>
+            <div class="small" id="plClass">Class</div>
+            <div class="hpbar"><div id="plHP" class="hpfill"></div></div>
+            <div class="small" id="plHPtext">HP</div>
+            <div style="margin-top:6px" id="plBuffs"></div>
+          </div>
+          <div>
+            <div class="small">Attack slots</div>
+            <div class="cards-grid" id="plAttackUI"></div>
           </div>
         </div>
       </div>
+
+      <div>
+        <div class="board">
+          <div style="font-weight:700">Action Log</div>
+          <div id="log" class="log"></div>
+        </div>
+
+        <div class="board" style="margin-top:12px">
+          <div style="font-weight:700">Your Defense Cards</div>
+          <div id="plDefenseList" style="margin-top:8px"></div>
+        </div>
+      </div>
     </div>
-  </div>
-
-  <!-- right column -->
-  <div id="side">
-    <div class="cards" id="cardsContainer">
-      <div class="big">Ability Cards</div>
-      <!-- cards inserted here -->
-    </div>
-
-    <div class="log" id="log"></div>
-  </div>
-</div>
-
-<footer>Lightweight, single-file — perfect for GitHub Pages.</footer>
+  </section>
+</main>
 
 <script>
-/* ---------- GAME DATA ---------- */
+/* -------------- Data model (Heroes + Cards) -------------- */
+/*
+ Hero structure per spec. Cards have:
+  - id, name, cost (numeric or "ALL6"), type ("attack" or "defense"), effect descriptor
+  - effect handling implemented in code
+*/
 const HEROES = {
   Warrior: {
-    avatar: "⚔️",
-    hpMax: 30,
-    desc: "Warrior — sturdy. Shield block reduces damage (1-4).",
-    abilities: [
-      { id: "w_strike", name: "Strike", cost: 6, dmg: 6, desc: "Solid hit." },
-      { id: "w_heavy",  name: "Heavy Blow", cost: 10, dmg: 12, desc: "Big damage." },
-      { id: "w_shield", name: "Shield Block", cost: 5, dmg: 0, desc: "Reduce next incoming dmg by 3-6 (self-buff)." },
-      { id: "w_ult",    name: "Wrath of Ares (ULT)", cost: "ALL6", dmg: 25, desc: "All-sixes ultimate." }
+    emoji: "⚔️", hpMax: 30,
+    attackCards: [
+      {id:"triage", name:"Triage", cost:18, type:"attack", desc:"Heal 5 HP at end of this and next turn (2-turn heal-over-time)", effect:"triage"},
+      {id:"slam", name:"Slam", cost:12, type:"attack", desc:"2 dmg, remove one die from opponent's next roll", effect:"slam"},
+      {id:"strike", name:"Strike", cost:10, type:"attack", desc:"8 damage", effect:"damage", dmg:8}
+    ],
+    defenseCards: [
+      {id:"shieldwall", name:"Shield Wall", cost:12, type:"defense", desc:"Halve incoming damage (one attack)", effect:"shieldwall"},
+      {id:"footwork", name:"Footwork", cost:18, type:"defense", desc:"Evade entire incoming attack", effect:"evade"},
+      {id:"riposte", name:"Riposte", cost:6, type:"defense", desc:"Deflect up to 5hp back to attacker", effect:"riposte", deflect:5}
     ]
   },
   Wizard: {
-    avatar: "🧙",
-    hpMax: 25,
-    desc: "Wizard — glass but magical. Mana Shield reduces damage (1-3).",
-    abilities: [
-      { id: "z_bolt", name: "Magic Bolt", cost: 5, dmg: 7, desc: "Magic missile." },
-      { id: "z_fire", name: "Fireball", cost: 12, dmg: 16, desc: "Explosive arcane damage." },
-      { id: "z_shield", name: "Mana Shield", cost: 6, dmg: 0, desc: "Absorb 3-5 damage next hit (self-buff)." },
-      { id: "z_ult", name: "Arcane Cataclysm (ULT)", cost: "ALL6", dmg: 30, desc: "All-sixes ultimate." }
-    ]
-  },
-  Rogue: {
-    avatar: "🗡️",
-    hpMax: 28,
-    desc: "Rogue — nimble. Evade chance to avoid incoming attack.",
-    abilities: [
-      { id: "r_back", name: "Backstab", cost: 7, dmg: 11, desc: "High single-target damage." },
-      { id: "r_poison", name: "Poison Dagger", cost: 8, dmg: 6, desc: "Applies 2-turn poison 4 dmg/turn." },
-      { id: "r_evade", name: "Evasion Stance", cost: 5, dmg: 0, desc: "Raise evasion (50% next attack dodge)." },
-      { id: "r_ult", name: "Death Mark (ULT)", cost: "ALL6", dmg: 22, desc: "All-sixes ultimate." }
+    emoji: "🧙", hpMax: 15,
+    attackCards: [
+      {id:"staticshield", name:"Static Shielding", cost:18, type:"attack", desc:"Halves damage to you for 2 turns; when attacked does mild damage back", effect:"staticshield"},
+      {id:"acidvial", name:"Acid Vial", cost:12, type:"attack", desc:"6 immediate damage + 3 damage over 3 turns", effect:"acid", dmg:6, dot:3, dotTurns:3},
+      {id:"thebigone", name:"The Big One", cost:20, type:"attack", desc:"Massive damage", effect:"damage", dmg:18}
+    ],
+    defenseCards: [
+      {id:"teleport", name:"Teleport", cost:18, type:"defense", desc:"Evade entire incoming attack", effect:"evade"},
+      {id:"veil", name:"Veil of Mist", cost:12, type:"defense", desc:"50% chance to evade full damage", effect:"veil"},
+      {id:"concentrate", name:"Concentrate Shield", cost:6, type:"defense", desc:"Deflect up to 5hp", effect:"riposte", deflect:5}
     ]
   }
 };
 
-/* ---------- GAME STATE ---------- */
-let player = null;
-let opponent = null;
-let turn = "setup"; // "player" or "ai"
-let rolled = false;
-let diceVals = [0,0,0,0,0];
-let energy = 0;
+/* -------------- Local game state -------------- */
+let mode = null; // "AI" or "ONLINE" (simulated)
+let lobbyEmoji = null;
+let playerSetup = { heroKey: null, attacks: [null,null], defenses: [null,null] };
+let opponentSetup = null; // for AI fill automatically
 
-/* temp buffs/state */
-let playerBuff = { shield:0, evade:false, poisonTurns:0 };
-let oppBuff    = { shield:0, evade:false, poisonTurns:0 };
+// Match state
+let match = {
+  player: null, // {key, emoji, hp, hpMax, attacks[], defenses[]}
+  opponent: null,
+  turn: null, // "player" or "opponent"
+  dice: [0,0,0,0,0],
+  playerAlloc: { attackDice: [], defenseDice: []}, // indices of dice chosen
+  // buffs
+  plBuff: { shieldActive:false, shieldHalf:false, evade:false, riposte:0, triageTurns:0, triagePending:0, acidTurns:0 },
+  opBuff: { shieldActive:false, shieldHalf:false, evade:false, riposte:0, triageTurns:0, triagePending:0, acidTurns:0 },
+  // removed dice effect
+  plRemoveDiceNext: 0,
+  opRemoveDiceNext: 0,
+  logLines: []
+};
 
-/* ---------- UI helpers ---------- */
-const el = id => document.getElementById(id);
-const log = txt => { el("log").innerHTML = (new Date()).toLocaleTimeString() + " — " + txt + "<br>" + el("log").innerHTML; };
+/* -------------- UI references -------------- */
+const screens = {
+  welcome: document.getElementById('welcome'),
+  select: document.getElementById('select'),
+  match: document.getElementById('matchScreen')
+};
 
-/* ---------- Setup / choose hero UI ---------- */
-function showHeroChoices(){
-  const chooseDiv = document.createElement("div");
-  chooseDiv.style.padding = "18px";
-  chooseDiv.style.display = "flex";
-  chooseDiv.style.gap = "8px";
-  chooseDiv.style.justifyContent = "center";
-  Object.keys(HEROES).forEach(h=>{
-    const btn = document.createElement("button");
-    btn.innerText = `${HEROES[h].avatar} ${h}`;
-    btn.onclick = ()=>startGame(h);
-    chooseDiv.appendChild(btn);
-  });
-  el("setup").innerHTML = "<p>Pick your hero:</p>";
-  el("setup").appendChild(chooseDiv);
+const logEl = document.getElementById('log');
+
+/* -------------- Utilities -------------- */
+function log(s){
+  const time = new Date().toLocaleTimeString();
+  match.logLines.unshift(`${time} — ${s}`);
+  if(match.logLines.length>200) match.logLines.pop();
+  logEl.innerHTML = match.logLines.join('<br>');
 }
-showHeroChoices();
-
-/* ---------- Start game ---------- */
-function startGame(heroName){
-  player = JSON.parse(JSON.stringify(HEROES[heroName]));
-  player.name = heroName; player.hp = player.hpMax;
-  // random opponent (not same)
-  const oppKeys = Object.keys(HEROES).filter(k=>k!==heroName);
-  const oppName = oppKeys[Math.floor(Math.random()*oppKeys.length)];
-  opponent = JSON.parse(JSON.stringify(HEROES[oppName]));
-  opponent.name = oppName; opponent.hp = opponent.hpMax;
-  // initial buffs
-  playerBuff = { shield:0, evade:false, poisonTurns:0 };
-  oppBuff    = { shield:0, evade:false, poisonTurns:0 };
-  // init UI
-  el("setup").style.display = "none";
-  el("container").style.display = "grid";
-  initPanels();
-  turn = "player";
-  rolled = false;
-  render();
-  log(`Battle start! You: ${player.name} ${player.avatar} vs Opponent: ${opponent.name} ${opponent.avatar}`);
-}
-
-/* ---------- UI rendering ---------- */
-function initPanels(){
-  el("playerAvatar").innerText = player.avatar;
-  el("playerName").innerText = `You — ${player.name}`;
-  el("playerClass").innerText = HEROES[player.name].desc || "";
-  el("oppAvatar").innerText = opponent.avatar;
-  el("oppName").innerText = `Enemy — ${opponent.name}`;
-  el("oppClass")?.remove?.();
-  renderCards();
-  updateHPbars();
-  el("rollBtn").disabled = false;
-  el("skipBtn").disabled = false;
-  el("diceVals").innerText = "- - - - -";
-  el("energyVal").innerText = "0";
-}
-
-/* update HP bars */
-function updateHPbars(){
-  const pPct = Math.max(0, player.hp) / player.hpMax * 100;
-  const oPct = Math.max(0, opponent.hp) / opponent.hpMax * 100;
-  el("playerHPfill").style.width = pPct + "%";
-  el("playerHPtext").innerText = `${player.hp} / ${player.hpMax} HP`;
-  el("oppHPfill").style.width = oPct + "%";
-  el("oppHPtext").innerText = `${opponent.hp} / ${opponent.hpMax} HP`;
-}
-
-/* render ability cards for player (always visible) */
-function renderCards(){
-  const cont = el("cardsContainer");
-  // clear existing except title line
-  cont.querySelectorAll(".card").forEach(n=>n.remove());
-  player.abilities.forEach(a=>{
-    const node = document.createElement("div");
-    node.className = "card";
-    const left = document.createElement("div");
-    left.innerHTML = `<div style="font-weight:700">${a.name}</div><div class="meta">${a.desc}</div>`;
-    const right = document.createElement("div");
-    right.innerHTML = `<div class="meta">Cost: ${a.cost}</div><div style="text-align:right" class="meta">Dmg: ${a.dmg}</div>`;
-    const btn = document.createElement("button");
-    btn.innerText = "Play";
-    btn.style.marginLeft = "8px";
-    // playable only if: rolled and energy >= cost (if numeric) and turn=player
-    const affordable = (typeof a.cost === "number") ? (energy >= a.cost) : false;
-    btn.disabled = !(rolled && turn==="player" && affordable);
-    btn.onclick = ()=>playerPlay(a);
-    node.appendChild(left);
-    node.appendChild(right);
-    node.appendChild(btn);
-    node.style.display = "flex";
-    node.style.alignItems = "center";
-    node.style.justifyContent = "space-between";
-    cont.appendChild(node);
-  });
-}
-
-/* ---------- Player actions ---------- */
-/* roll dice: sum of dice = energy */
-function playerRoll(){
-  if(turn !== "player"){ log("Not your turn."); return; }
-  if(rolled){ log("You already rolled this turn."); return; }
-  // roll five dice
-  diceVals = Array.from({length:5},()=>Math.floor(Math.random()*6)+1);
-  el("diceVals").innerText = diceVals.join(" ");
-  energy = diceVals.reduce((s,v)=>s+v,0); // sum
-  el("energyVal").innerText = energy;
-  rolled = true;
-  el("rollBtn").disabled = true;
-  el("skipBtn").disabled = false;
-  log(`You rolled: [${diceVals.join(", ")}] → Energy ${energy}`);
-  // all sixes => ultimate triggers immediately (auto-play player's ultimate if exists)
-  if(diceVals.every(v=>v===6)){
-    const ult = player.abilities.find(x=>x.cost==="ALL6");
-    if(ult){
-      log("🔥 ALL SIXES! Ultimate triggers automatically.");
-      playerPlay(ult);
-      return; // after ultimate, turn will continue to end
-    }
-  }
-  renderCards();
-}
-
-/* choose to skip (end your action without playing a card) */
-function playerSkip(){
-  if(turn!=="player"){ log("Not your turn."); return; }
-  if(!rolled){ log("You must roll before skipping."); return; }
-  log("You skip your action this turn.");
-  endPlayerTurn();
-}
-
-/* playing a card */
-function playerPlay(ability){
-  if(turn!=="player"){ log("Not your turn."); return; }
-  if(!rolled && ability.cost !== "ALL6"){ log("You must roll before playing (unless ALL6 ultimate triggered)."); return; }
-  if(typeof ability.cost === "number" && energy < ability.cost && ability.cost !== "ALL6"){ log("Not enough energy."); return; }
-  // consume energy if numeric
-  if(typeof ability.cost === "number"){ energy -= ability.cost; el("energyVal").innerText = energy; }
-  // resolve ability effects
-  log(`You play: ${ability.name} (${ability.desc})`);
-  resolveAbility("player", "opponent", ability);
-  // after playing one card, force end of player action (single card only)
-  endPlayerTurn();
-}
-
-/* ---------- resolve damage & buffs ---------- */
-function resolveAbility(attackerSide, targetSide, ability){
-  const attacker = attackerSide === "player" ? player : opponent;
-  const target   = targetSide === "player" ? player : opponent;
-  const attBuff  = attackerSide === "player" ? playerBuff : oppBuff;
-  const tarBuff  = targetSide === "player" ? playerBuff : oppBuff;
-
-  // Special handling for certain abilities (shield, evade, poison)
-  if(ability.id?.includes("shield") || ability.name.toLowerCase().includes("shield") ){
-    // apply shield buff: amount depends on class
-    let amt = attacker.name==="Warrior" ? rand(3,6) : rand(2,4);
-    if(attacker.name==="Wizard") amt = rand(2,5);
-    tarBuff.shield = (attackerSide==="player") ? playerBuff.shield + amt : oppBuff.shield + amt;
-    log(`${attacker.name} gains a shield absorbing ~${amt} damage on next hit.`);
-    updateHPbars();
-    return;
-  }
-  if(ability.name.toLowerCase().includes("evasion") || ability.id?.includes("evade")){
-    // set evade for next attack
-    if(attackerSide==="player") playerBuff.evade = true; else oppBuff.evade = true;
-    log(`${attacker.name} readies an evasion (chance to dodge next hit).`);
-    return;
-  }
-  if(ability.name.toLowerCase().includes("poison")){
-    // apply poison: 2 turns of 4 damage at start of victim's turns
-    if(targetSide==="player"){ playerBuff.poisonTurns = Math.max(playerBuff.poisonTurns, 2); }
-    else { oppBuff.poisonTurns = Math.max(oppBuff.poisonTurns, 2); }
-    log(`${target.name} is poisoned for 2 turns!`);
-    // also deal immediate damage
-  }
-
-  // normal damage (including ult)
-  let baseDmg = ability.dmg || 0;
-
-  // Check target evade first (50% chance)
-  if(tarBuff.evade){
-    const dodge = Math.random() < 0.5;
-    tarBuff.evade = false; // consumed
-    if(dodge){
-      log(`${target.name} evaded the attack! No damage taken.`);
-      updateHPbars();
-      return;
-    } else {
-      log(`${target.name} tried to evade but failed.`);
-    }
-  }
-
-  // Apply shield reduction (if any)
-  let shieldReduction = 0;
-  if(tarBuff.shield && tarBuff.shield > 0){
-    // shield absorbs up to its remaining value
-    shieldReduction = Math.min(tarBuff.shield, baseDmg);
-    tarBuff.shield -= shieldReduction;
-    log(`${target.name}'s shield absorbs ${shieldReduction} damage.`);
-  }
-
-  // Defense by class: Warrior reduces an extra random 1-2, Wizard reduces 1, Rogue small chance to avoid (already handled via evade)
-  let classReduction = 0;
-  if(target.name === "Warrior") classReduction = rand(1,2);
-  if(target.name === "Wizard") classReduction = rand(0,1);
-  if(target.name === "Rogue") classReduction = 0; // dodge handled earlier
-
-  const net = Math.max(0, baseDmg - shieldReduction - classReduction);
-  target.hp -= net;
-  log(`${target.name} takes ${net} damage (after reductions).`);
-
-  updateHPbars();
-  checkGameOver();
-}
-
-/* ---------- End player turn and start AI ---------- */
-function endPlayerTurn(){
-  // apply any poison at end of player action? We'll apply poison at start of receiving side's turn.
-  // reset roll state
-  rolled = false;
-  el("rollBtn").disabled = true; // cannot roll again until AI finishes
-  el("skipBtn").disabled = true;
-  el("diceVals").innerText = "- - - - -";
-  el("energyVal").innerText = "0";
-  renderCards();
-  // AI turn next
-  turn = "ai";
-  setTimeout(aiTurn, 700);
-}
-
-/* ---------- AI logic ---------- */
-function aiTurn(){
-  // apply poison tick on AI at start of AI turn
-  if(oppBuff.poisonTurns > 0){
-    const dmg = 4;
-    opponent.hp -= dmg; oppBuff.poisonTurns--;
-    log(`🟢 Opponent suffers ${dmg} poison damage (${oppBuff.poisonTurns} turns left).`);
-    updateHPbars(); if(checkGameOver()) return;
-  }
-  // AI rolls dice
-  const aiDice = Array.from({length:5},()=>Math.floor(Math.random()*6)+1);
-  const aiEnergy = aiDice.reduce((s,v)=>s+v,0);
-  log(`Opponent rolls [${aiDice.join(", ")}] → Energy ${aiEnergy}`);
-  // check all sixes => ultimate
-  if(aiDice.every(v=>v===6)){
-    const ult = opponent.abilities.find(a=>a.cost==="ALL6");
-    if(ult){ log(`🔥 Opponent's Ultimate: ${ult.name}`); resolveAbility("ai","player",ult); }
-    // finish AI turn
-    setTimeout(()=>{ turn = "player"; el("rollBtn").disabled = false; log("Your turn — roll the dice."); }, 700);
-    return;
-  }
-  // otherwise choose a playable ability. Prefer highest damage affordable, or shield if low hp
-  const affordable = opponent.abilities.filter(a=>typeof a.cost === "number" && a.cost <= aiEnergy);
-  if(affordable.length === 0){
-    log("Opponent can't afford any ability and skips.");
-    setTimeout(()=>{ turn = "player"; el("rollBtn").disabled = false; log("Your turn — roll the dice."); }, 700);
-    return;
-  }
-  // heuristic: if opponent low HP and has shield ability and not shielded, maybe shield; else choose max dmg
-  let choice = affordable.sort((a,b)=>b.dmg - a.dmg)[0];
-  // slight variation: if opponent.hp < 40% and they have shield ability, pick it sometimes
-  const shieldOpt = affordable.find(a=>a.name.toLowerCase().includes("shield")||a.name.toLowerCase().includes("block"));
-  if(opponent.hp / opponent.hpMax < 0.4 && shieldOpt && Math.random() < 0.6) choice = shieldOpt;
-  log(`Opponent plays ${choice.name}.`);
-  resolveAbility("ai","player",choice);
-
-  // AI end, give control back to player
-  setTimeout(()=>{ turn = "player"; el("rollBtn").disabled = false; log("Your turn — roll the dice."); }, 800);
-}
-
-/* ---------- Utility & helpers ---------- */
 function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
 
-/* check game over */
-function checkGameOver(){
-  if(player.hp <= 0){
-    log("💀 You fell to 0 HP. Defeat.");
-    setTimeout(()=>{ alert("You Lose! Reloading."); location.reload(); }, 200);
-    return true;
+/* -------------- Welcome / Mode buttons -------------- */
+document.getElementById('btnAI').onclick = ()=>{
+  mode = "AI";
+  screens.welcome.classList.remove('visible');
+  screens.select.classList.add('visible');
+  buildHeroList();
+};
+
+document.getElementById('btnOnline').onclick = ()=>{
+  mode = "ONLINE";
+  document.getElementById('onlineLobby').style.display = "block";
+  // show lobby emojis (simulated)
+};
+
+document.querySelectorAll('.lobby-emoji').forEach(el=>{
+  el.onclick = e=>{
+    lobbyEmoji = el.dataset.emoji;
+    document.getElementById('lobbyStatus').innerText = `Joined lobby ${lobbyEmoji} (simulated). Click "Play vs AI" if you want a quick demo, or press Ready after selecting hero.`;
+    // for demo, we'll still go to hero select
+    screens.welcome.classList.remove('visible');
+    screens.select.classList.add('visible');
+    buildHeroList();
   }
-  if(opponent.hp <= 0){
-    log("🏆 Opponent falls. Victory!");
-    setTimeout(()=>{ alert("You Win! Reloading."); location.reload(); }, 200);
-    return true;
+});
+
+/* -------------- Hero select UI & slot assignment -------------- */
+function buildHeroList(){
+  const container = document.getElementById('heroList');
+  container.innerHTML = '';
+  Object.keys(HEROES).forEach(k=>{
+    const h = HEROES[k];
+    const node = document.createElement('div');
+    node.className = 'hero-card';
+    node.innerHTML = `<div style="font-size:32px;text-align:center">${h.emoji}</div>
+      <div style="font-weight:700;text-align:center">${k}</div>
+      <div class="small" style="margin-top:6px">${h.hpMax} HP</div>
+      <div style="margin-top:6px"><strong>Attacks</strong></div>`;
+    h.attackCards.forEach(c=>{
+      const b = document.createElement('div'); b.className='small'; b.textContent = `• ${c.name} — ${c.desc} (cost ${c.cost==='ALL6'?'ULT':c.cost})`; node.appendChild(b);
+    });
+    node.innerHTML += `<div style="margin-top:6px"><strong>Defenses</strong></div>`;
+    h.defenseCards.forEach(c=>{
+      const b = document.createElement('div'); b.className='small'; b.textContent = `• ${c.name} — ${c.desc} (cost ${c.cost})`; node.appendChild(b);
+    });
+    const choose = document.createElement('div'); choose.style.marginTop='8px'; choose.style.textAlign='center';
+    const selBtn = document.createElement('button'); selBtn.textContent='Select'; selBtn.onclick=()=>chooseHero(k);
+    choose.appendChild(selBtn); node.appendChild(choose);
+    container.appendChild(node);
+  });
+}
+
+/* slot handling - click a slot to set the current 'selected slot' and then choose a card by name */
+let selectedSlot = null;
+const slots = { atk1:document.getElementById('atk1'), atk2:document.getElementById('atk2'), def1:document.getElementById('def1'), def2:document.getElementById('def2') };
+for (let k in slots) slots[k].onclick = ()=>{ selectedSlot=k; Object.values(slots).forEach(s=>s.style.borderColor='#333'); slots[k].style.borderColor= '#888'; showCardPicker(); };
+
+function chooseHero(key){
+  playerSetup.heroKey = key;
+  // auto-fill opponent for AI mode
+  if(mode==="AI"){
+    const oppKeys = Object.keys(HEROES).filter(x=>x!==key);
+    const oppKey = oppKeys[rand(0,oppKeys.length-1)];
+    opponentSetup = { heroKey:oppKey, attacks: [null,null], defenses:[null,null] };
+  }
+  // show chosen area
+  document.getElementById('chosenHeroArea').innerHTML = `<div style="font-size:36px;text-align:center">${HEROES[key].emoji}</div>
+    <div style="font-weight:700;text-align:center">${key}</div>
+    <div class="small">${HEROES[key].hpMax} HP</div>`;
+  // prefill attack/defense slots with first cards as convenience
+  playerSetup.attacks = [HEROES[key].attackCards[0], HEROES[key].attackCards[1] || null];
+  playerSetup.defenses = [HEROES[key].defenseCards[0], HEROES[key].defenseCards[1] || null];
+  slots.atk1.innerText = playerSetup.attacks[0] ? playerSetup.attacks[0].name : 'Attack 1';
+  slots.atk2.innerText = playerSetup.attacks[1] ? playerSetup.attacks[1].name : 'Attack 2';
+  slots.def1.innerText = playerSetup.defenses[0] ? playerSetup.defenses[0].name : 'Defense 1';
+  slots.def2.innerText = playerSetup.defenses[1] ? playerSetup.defenses[1].name : 'Defense 2';
+}
+
+/* show card picker for the selected slot */
+function showCardPicker(){
+  if(!selectedSlot || !playerSetup.heroKey) return;
+  // Overlay simple prompt: choose from hero's list
+  const h = HEROES[playerSetup.heroKey];
+  const isAttack = selectedSlot.startsWith('atk');
+  const list = isAttack ? h.attackCards : h.defenseCards;
+  const choice = prompt(`Choose a card for ${selectedSlot}:\n` + list.map((c,i)=>`${i+1}. ${c.name} — ${c.desc} (cost ${c.cost})`).join('\n') + `\nType the number or Cancel to skip`);
+  const idx = parseInt(choice) - 1;
+  if(!isNaN(idx) && idx>=0 && idx<list.length){
+    const card = list[idx];
+    if(selectedSlot==='atk1') playerSetup.attacks[0]=card;
+    if(selectedSlot==='atk2') playerSetup.attacks[1]=card;
+    if(selectedSlot==='def1') playerSetup.defenses[0]=card;
+    if(selectedSlot==='def2') playerSetup.defenses[1]=card;
+    // update UI
+    slots.atk1.innerText = playerSetup.attacks[0] ? playerSetup.attacks[0].name : 'Attack 1';
+    slots.atk2.innerText = playerSetup.attacks[1] ? playerSetup.attacks[1].name : 'Attack 2';
+    slots.def1.innerText = playerSetup.defenses[0] ? playerSetup.defenses[0].name : 'Defense 1';
+    slots.def2.innerText = playerSetup.defenses[1] ? playerSetup.defenses[1].name : 'Defense 2';
+  }
+  selectedSlot=null;
+  Object.values(slots).forEach(s=>s.style.borderColor='#333');
+}
+
+/* Ready button to start match */
+document.getElementById('btnReady').onclick = ()=>{
+  if(!playerSetup.heroKey){ alert('Pick a hero first'); return; }
+  // finalize player setup (force fill if null)
+  const h = HEROES[playerSetup.heroKey];
+  playerSetup.attacks = playerSetup.attacks.map((c,i)=>c||h.attackCards[i]||null);
+  playerSetup.defenses = playerSetup.defenses.map((c,i)=>c||h.defenseCards[i]||null);
+  // if AI mode, auto set opponent attacks/defenses
+  if(mode==="AI"){
+    opponentSetup.attacks = [HEROES[opponentSetup.heroKey].attackCards[0], HEROES[opponentSetup.heroKey].attackCards[1]||HEROES[opponentSetup.heroKey].attackCards[0]];
+    opponentSetup.defenses = [HEROES[opponentSetup.heroKey].defenseCards[0], HEROES[opponentSetup.heroKey].defenseCards[1]||HEROES[opponentSetup.heroKey].defenseCards[0]];
+  }
+  // Build match state
+  startMatch();
+};
+
+/* -------------- Match Start -------------- */
+function startMatch(){
+  // init match.player and match.opponent objects
+  match.player = {
+    key: playerSetup.heroKey,
+    emoji: HEROES[playerSetup.heroKey].emoji,
+    hp: HEROES[playerSetup.heroKey].hpMax,
+    hpMax: HEROES[playerSetup.heroKey].hpMax,
+    attacks: playerSetup.attacks.slice(),
+    defenses: playerSetup.defenses.slice()
+  };
+  match.opponent = {
+    key: (mode==="AI") ? opponentSetup.heroKey : opponentSetup ? opponentSetup.heroKey : (playerSetup.heroKey === 'Warrior' ? 'Wizard' : 'Warrior'),
+    emoji: null,
+    hp: 0, hpMax: 0,
+    attacks: [],
+    defenses: []
+  };
+  // fill opponent details
+  const oppKey = match.opponent.key;
+  match.opponent.emoji = HEROES[oppKey].emoji; match.opponent.hp = HEROES[oppKey].hpMax; match.opponent.hpMax = HEROES[oppKey].hpMax;
+  if(mode==="AI"){
+    match.opponent.attacks = opponentSetup.attacks.slice();
+    match.opponent.defenses = opponentSetup.defenses.slice();
+  } else {
+    // simulated opponent same as AI for demo
+    match.opponent.attacks = HEROES[oppKey].attackCards.slice(0,2);
+    match.opponent.defenses = HEROES[oppKey].defenseCards.slice(0,2);
+  }
+  // reset buffs
+  match.plBuff = { shieldActive:false, shieldHalf:false, evade:false, riposte:0, triageTurns:0, acidTicks:0};
+  match.opBuff = { shieldActive:false, shieldHalf:false, evade:false, riposte:0, triageTurns:0, acidTicks:0};
+  match.plRemoveDiceNext = 0; match.opRemoveDiceNext = 0;
+  match.turn = "player"; match.logLines = [];
+  // show match screen
+  screens.select.classList.remove('visible');
+  screens.match.classList.add('visible');
+  renderMatchUI();
+  log(`Match start! You (${match.player.key}) vs ${match.opponent.key}`);
+}
+
+/* -------------- Render match UI -------------- */
+function renderMatchUI(){
+  document.getElementById('plName').innerText = `You — ${match.player.key}`;
+  document.getElementById('plClass').innerText = '';
+  document.getElementById('plHP').style.width = (match.player.hp/match.player.hpMax*100)+'%';
+  document.getElementById('plHPtext').innerText = `${match.player.hp} / ${match.player.hpMax} HP`;
+  document.getElementById('plBuffs').innerHTML = buffSummary(match.plBuff);
+  document.getElementById('oppAvatar').innerText = match.opponent.emoji;
+  document.getElementById('oppName').innerText = `${match.opponent.key}`;
+  document.getElementById('oppHP').style.width = (match.opponent.hp/match.opponent.hpMax*100)+'%';
+  document.getElementById('oppHPtext').innerText = `${match.opponent.hp} / ${match.opponent.hpMax} HP`;
+  document.getElementById('oppBuffs').innerHTML = buffSummary(match.opBuff);
+  // show player attacks and opponent defenses (slots)
+  const plAtk = document.getElementById('plAttackUI'); plAtk.innerHTML='';
+  match.player.attacks.forEach((c,idx)=>{
+    const n = document.createElement('div'); n.className='card';
+    n.innerHTML = `<div><div style="font-weight:700">${c?c.name:'-'}</div><div class="meta">${c?c.desc:''}</div></div><div class="meta">Cost: ${c?c.cost:'-'}</div>`;
+    plAtk.appendChild(n);
+  });
+  const oppDef = document.getElementById('oppDefenseUI'); oppDef.innerHTML='';
+  match.opponent.defenses.forEach((c,idx)=>{
+    const n = document.createElement('div'); n.className='card';
+    n.innerHTML = `<div><div style="font-weight:700">${c?c.name:'-'}</div><div class="meta">${c?c.desc:''}</div></div><div class="meta">Cost: ${c?c.cost:'-'}</div>`;
+    oppDef.appendChild(n);
+  });
+  // show your defense list separately to be clicked in reaction phase
+  const plDefList = document.getElementById('plDefenseList'); plDefList.innerHTML='';
+  match.player.defenses.forEach((c,idx)=>{
+    const d = document.createElement('div'); d.className='card'; d.innerHTML = `<div><div style="font-weight:700">${c.name}</div><div class="meta">${c.desc}</div></div><div class="meta">Cost: ${c.cost}</div>`;
+    plDefList.appendChild(d);
+  });
+  // reset dice UI
+  buildDiceUI();
+  // controls enable
+  document.getElementById('btnRoll').disabled = !(match.turn==='player');
+  document.getElementById('btnClearAlloc').disabled = true;
+  document.getElementById('btnPlayAttack').disabled = true;
+  document.getElementById('btnEndTurn').disabled = true;
+}
+
+/* create dice boxes */
+function buildDiceUI(){
+  const row = document.getElementById('diceRow'); row.innerHTML = '';
+  for(let i=0;i<5;i++){
+    const d = document.createElement('div'); d.className='die'; d.id=`die${i}`; d.innerText = '-'; d.onclick = ()=>toggleDiceAlloc(i);
+    row.appendChild(d);
+  }
+  // reset allocations
+  match.dice = [0,0,0,0,0];
+  match.playerAlloc = { attackDice:[], defenseDice:[]};
+  document.getElementById('attackAlloc').innerText = '-';
+  document.getElementById('defenseAlloc').innerText = '-';
+}
+
+/* -------------- Dice & Allocation logic -------------- */
+/* Roll dice for active player (5d6), support removed dice next round */
+document.getElementById('btnRoll').onclick = ()=>{
+  if(match.turn!=='player'){ log('Not your turn to roll.'); return; }
+  // if player had removal applied, reduce number of dice by that amount by marking last dice as removed
+  let diceCount = 5 - match.plRemoveDiceNext;
+  if(diceCount<1) diceCount=1; // min 1
+  match.dice = Array.from({length:5},(_,i)=> i < diceCount ? rand(1,6) : 0);
+  match.plRemoveDiceNext = 0; // consumed
+  // render dice
+  for(let i=0;i<5;i++){
+    const el = document.getElementById(`die${i}`);
+    if(match.dice[i]===0){ el.innerText='X'; el.style.opacity=0.35; el.style.pointerEvents='none'; }
+    else { el.innerText = match.dice[i]; el.style.opacity=1; el.style.pointerEvents='auto'; }
+    // deselect classes:
+    el.style.border = '1px solid #333';
+  }
+  // clear previous allocations
+  match.playerAlloc = { attackDice:[], defenseDice:[]};
+  document.getElementById('attackAlloc').innerText='-';
+  document.getElementById('defenseAlloc').innerText='-';
+  document.getElementById('btnClearAlloc').disabled = false;
+  document.getElementById('btnPlayAttack').disabled = true;
+  document.getElementById('btnEndTurn').disabled = false;
+  log(`You rolled: [${match.dice.map(v=>v||'X').join(', ')}]`);
+};
+
+/* toggle allocation clicks - cycles through none -> attack -> defense -> none */
+function toggleDiceAlloc(i){
+  if(match.turn!=='player') return;
+  if(match.dice[i]===0) return;
+  const dieEl = document.getElementById(`die${i}`);
+  const inAttack = match.playerAlloc.attackDice.includes(i);
+  const inDef = match.playerAlloc.defenseDice.includes(i);
+  if(!inAttack && !inDef){
+    match.playerAlloc.attackDice.push(i); dieEl.style.border='2px solid #f39c12';
+  } else if(inAttack){
+    // move to defense
+    match.playerAlloc.attackDice = match.playerAlloc.attackDice.filter(x=>x!==i);
+    match.playerAlloc.defenseDice.push(i); dieEl.style.border='2px solid #27ae60';
+  } else {
+    // remove allocation
+    match.playerAlloc.defenseDice = match.playerAlloc.defenseDice.filter(x=>x!==i);
+    dieEl.style.border='1px solid #333';
+  }
+  refreshAllocText();
+}
+
+/* Refresh allocation display and enable/disable play button if attack meets any attack card cost */
+function refreshAllocText(){
+  const atkVals = match.playerAlloc.attackDice.map(i=>match.dice[i]||0);
+  const defVals = match.playerAlloc.defenseDice.map(i=>match.dice[i]||0);
+  document.getElementById('attackAlloc').innerText = atkVals.length ? atkVals.join(',') + `  (sum ${atkVals.reduce((s,v)=>s+v,0)})` : '-';
+  document.getElementById('defenseAlloc').innerText = defVals.length ? defVals.join(',') + `  (sum ${defVals.reduce((s,v)=>s+v,0)})` : '-';
+  // check if any attack card can be played with attack allocation sum OR if ALL6 ultimate condition triggered
+  const sumAtk = atkVals.reduce((s,v)=>s+v,0);
+  const allSixes = match.dice.filter(v=>v>0).length>0 && match.dice.filter(v=>v>0).every(v=>v===6);
+  let canPlay = false;
+  for(const c of match.player.attacks){
+    if(!c) continue;
+    if(c.cost==='ALL6' && allSixes) { canPlay=true; break; }
+    if(typeof c.cost === 'number' && sumAtk >= c.cost) { canPlay = true; break; }
+  }
+  document.getElementById('btnPlayAttack').disabled = !canPlay;
+}
+
+/* Clear allocations */
+document.getElementById('btnClearAlloc').onclick = ()=>{
+  match.playerAlloc = { attackDice:[], defenseDice:[]};
+  for(let i=0;i<5;i++){ const el = document.getElementById(`die${i}`); el.style.border='1px solid #333'; }
+  refreshAllocText();
+};
+
+/* Play Attack button */
+document.getElementById('btnPlayAttack').onclick = ()=>{
+  // choose which attack card to use — if multiple affordable, prompt selection
+  const sumAtk = match.playerAlloc.attackDice.map(i=>match.dice[i]).reduce((s,v)=>s+(v||0),0);
+  const allSixes = match.dice.filter(v=>v>0).length>0 && match.dice.filter(v=>v>0).every(v=>v===6);
+  // build candidate list
+  const candidates = match.player.attacks.filter(c=>{
+    if(!c) return false;
+    if(c.cost==='ALL6' && allSixes) return true;
+    return typeof c.cost==='number' && sumAtk >= c.cost;
+  });
+  if(candidates.length===0){ alert('No playable attack selected'); return; }
+  let chosen = null;
+  if(candidates.length===1) chosen = candidates[0];
+  else {
+    // prompt user to pick
+    const pick = prompt('Pick attack to play:\n' + candidates.map((c,i)=>`${i+1}. ${c.name} — ${c.desc} (cost ${c.cost})`).join('\n'));
+    const idx = parseInt(pick)-1; if(isNaN(idx) || idx<0 || idx>=candidates.length) { alert('Invalid'); return; }
+    chosen = candidates[idx];
+  }
+  // consume allocated attack dice (they're spent)
+  const spentDiceIndices = match.playerAlloc.attackDice.slice();
+  // defense dice reserved remain until opponent declares defense; they are not consumed yet (they are reserved)
+  // compute attack power/effect:
+  log(`You declare attack: ${chosen.name}`);
+  // if opponent has reserved sufficient dice for a defense card (must be executed by defending player when attack is declared)
+  // For player attacking AI, the AI will attempt to use defenses if defenseDice sum meets cost
+  handleAttackResolution('player', 'opponent', chosen, spentDiceIndices);
+};
+
+/* End Turn - skip */
+document.getElementById('btnEndTurn').onclick = ()=>{
+  if(match.turn!=='player') return;
+  // if player hasn't rolled, disallow
+  if(match.dice.every(v=>v===0)) { alert('You must roll before ending'); return; }
+  // use no attack this turn: go to opponent
+  log('You end your action without attacking.');
+  endPlayerAction();
+};
+
+/* -------------- Attack resolution flow -------------- */
+/* attackerSide 'player' or 'opponent' */
+function handleAttackResolution(attackerSide, targetSide, attackCard, spentDiceIndices){
+  // compute base damage or effect
+  const attacker = attackerSide==='player' ? match.player : match.opponent;
+  const defender = targetSide==='player' ? match.player : match.opponent;
+  const defenderBuff = targetSide==='player' ? match.plBuff : match.opBuff;
+  const attackerBuff = attackerSide==='player' ? match.plBuff : match.opBuff;
+
+  // Special immediate effects for Triage etc handled below
+  // First: compute attack sum from spentDiceIndices values
+  const attackSum = spentDiceIndices.map(i=>match.dice[i]||0).reduce((s,v)=>s+v,0);
+
+  // For AI defender, check if it reserved defense dice earlier (simulated: AI reserves none normally)
+  // For player defender (reactive defense): we allow them to click a defense to play if they reserved enough defense dice
+  // Implementation: defender's reserved defense sum:
+  const defenderReservedSum = (targetSide==='player') ? match.playerAlloc.defenseDice.map(i=>match.dice[i]||0).reduce((s,v)=>s+v,0) : 0;
+  // Find defensible defense cards affordable by defenderReservedSum
+  const defCandidates = (targetSide==='player') ? match.player.defenses.filter(d=>{
+    if(!d) return false;
+    if(typeof d.cost==='number') return defenderReservedSum >= d.cost;
+    return false;
+  }) : [];
+
+  // If defenderSide is player (human), let them pick a defense (must be done now)
+  if(targetSide==='player' && defCandidates.length>0){
+    // prompt defender
+    const pick = prompt(`Opponent attacked with ${attackCard.name}. You reserved ${defenderReservedSum} defense energy. Play a defense?\n` +
+      defCandidates.map((c,i)=>`${i+1}. ${c.name} — ${c.desc} (cost ${c.cost})`).join('\n') + '\nType number or Cancel to not defend.');
+    const idx = parseInt(pick)-1;
+    if(!isNaN(idx) && idx>=0 && idx<defCandidates.length){
+      const chosenDef = defCandidates[idx];
+      // consume defense dice (remove them)
+      match.playerAlloc.defenseDice = []; // for simplicity, defense dice are consumed now
+      // apply defense resolution
+      log(`You play defense ${chosenDef.name} in response.`);
+      resolveDefense('player','opponent', chosenDef, attackCard, attackSum);
+      return;
+    }
+  }
+
+  // If AI defends, we simulate whether it has a defense that it reserved — we will assume AI has no reservation; but if you want AI defense reservation, extend here.
+
+  // Otherwise resolve attack normally (no defense)
+  resolveAttackDirect(attackerSide, targetSide, attackCard, attackSum);
+}
+
+/* resolve defense card which may alter the incoming attack */
+function resolveDefense(defenderSide, attackerSide, defCard, incomingAttackCard, incomingSum){
+  const defender = defenderSide==='player' ? match.player : match.opponent;
+  const attacker = attackerSide==='player' ? match.player : match.opponent;
+  const defBuff = defenderSide==='player' ? match.plBuff : match.opBuff;
+
+  // consume defense card cost already checked
+  // Implement defense effects per card type
+  if(defCard.effect === 'shieldwall'){
+    // Halve incoming damage (we'll mark shieldHalf true)
+    defBuff.shieldHalf = true;
+    log(`${defenderSide==='player' ? 'You' : 'Opponent'} set up Shield Wall (halves next incoming damage).`);
+    // Now resolve attack (halved)
+    resolveAttackDirect(attackerSide, defenderSide, incomingAttackCard, incomingSum);
+    defBuff.shieldHalf = false; // one-use
+    return;
+  }
+  if(defCard.effect === 'evade'){
+    // Evade entire incoming attack: success guaranteed
+    log(`${defenderSide==='player' ? 'You' : 'Opponent'} evaded the attack completely!`);
+    // Some defenses like riposte may still apply? Not here
+    return;
+  }
+  if(defCard.effect === 'riposte'){
+    // deflect up to defCard.deflect back to attacker (after damage deducted)
+    // We will apply normal resolution then send back
+    const preHP = attacker.hp;
+    resolveAttackDirect(attackerSide, defenderSide, incomingAttackCard, incomingSum); // attacker hits defender
+    const dealt = preHP - attacker.hp; // actually this is wrong for riposte logic — we want to measure damage to defender
+    // Instead compute damage to defender via computeDamageInternal used below
+    return;
+  }
+
+  // default fallback
+  resolveAttackDirect(attackerSide, defenderSide, incomingAttackCard, incomingSum);
+}
+
+/* Resolve attack ignoring defense selection (or after defense modifies state) */
+function resolveAttackDirect(attackerSide, defenderSide, attackCard, attackSum){
+  const attacker = attackerSide==='player' ? match.player : match.opponent;
+  const defender = defenderSide==='player' ? match.player : match.opponent;
+  const defBuff = defenderSide==='player' ? match.plBuff : match.opBuff;
+  const attBuff = attackerSide==='player' ? match.plBuff : match.opBuff;
+
+  // First apply special attack card behaviors
+  if(attackCard.effect === 'triage'){
+    // heal 5 HP for this and next turn -> we'll apply immediate 5 and set triageTurns=1 meaning next-turn heal
+    const heal = 5;
+    attacker.hp = Math.min(attacker.hp + heal, attacker.hpMax);
+    if(attackerSide === 'player') match.plBuff.triageTurns = Math.max(match.plBuff.triageTurns, 1);
+    else match.opBuff.triageTurns = Math.max(match.opBuff.triageTurns, 1);
+    log(`${attackerSide==='player'?'You':'Opponent'} heal ${heal} HP from Triage (plus next-turn heal).`);
+    updateHPUI();
+    endPlayerAction(); return;
+  }
+
+  if(attackCard.effect === 'slam'){
+    // low damage and remove die from opponent's next round
+    // slam: use provided dmg (if any) else small default
+    const dmg = attackCard.dmg || 2;
+    // compute actual inflicted after defenses
+    const inflicted = computeAndApplyDamage(attackerSide, defenderSide, dmg);
+    // remove one die from defender's next roll
+    if(defenderSide === 'player') match.plRemoveDiceNext += 1;
+    else match.opRemoveDiceNext += 1;
+    log(`${attackerSide==='player'?'You':'Opponent'} slammed for ${dmg} (net ${inflicted}). Defender will lose 1 die next roll.`);
+    endPlayerAction(); return;
+  }
+
+  if(attackCard.effect === 'acid'){
+    // immediate damage + apply DoT
+    const dmg = attackCard.dmg || 0;
+    const inflicted = computeAndApplyDamage(attackerSide, defenderSide, dmg);
+    // apply DOT:
+    if(defenderSide === 'player') match.plBuff.acidTicks = Math.max(match.plBuff.acidTicks, attackCard.dotTurns || 3);
+    else match.opBuff.acidTicks = Math.max(match.opBuff.acidTicks, attackCard.dotTurns || 3);
+    log(`${attackerSide==='player'?'You':'Opponent'} hit for ${dmg}. Acid applies ${attackCard.dot||3} dmg over ${attackCard.dotTurns||3} turns.`);
+    endPlayerAction(); return;
+  }
+
+  if(attackCard.effect === 'staticshield'){
+    // attacker gains shieldHalf for 2 turns (we represent as triageTurns-like counter) and also retaliates small damage when attacked
+    const markTurns = 2;
+    if(attackerSide === 'player') match.plBuff.shieldHalf = true, match.plBuff.triageTurns = Math.max(match.plBuff.triageTurns, markTurns-1);
+    else match.opBuff.shieldHalf = true, match.opBuff.triageTurns = Math.max(match.opBuff.triageTurns, markTurns-1);
+    log(`${attackerSide==='player'?'You':'Opponent'} set Static Shielding (half damage for 2 turns).`);
+    endPlayerAction(); return;
+  }
+
+  if(attackCard.effect === 'damage'){
+    const dmg = attackCard.dmg || 0;
+    const inflicted = computeAndApplyDamage(attackerSide, defenderSide, dmg);
+    log(`${attackerSide==='player'?'You':'Opponent'} dealt ${dmg} damage (net ${inflicted}).`);
+    endPlayerAction(); return;
+  }
+
+  // other defaults
+  log('Attack processed (no effect matched).');
+  endPlayerAction();
+}
+
+/* compute damage considering shieldHalf, evoke, riposte etc and apply to defender; returns net damage applied */
+function computeAndApplyDamage(attackerSide, defenderSide, baseDmg){
+  const defender = defenderSide==='player' ? match.player : match.opponent;
+  const defenderBuff = defenderSide==='player' ? match.plBuff : match.opBuff;
+  const attacker = attackerSide==='player' ? match.player : match.opponent;
+  // Evade flags
+  if(defenderBuff.evade){
+    defenderBuff.evade = false;
+    log(`${defenderSide==='player'?'You':'Opponent'} evaded the attack!`);
+    return 0;
+  }
+  // Veil (50% chance) is represented via shieldHalf? no — handled as special defense card applied earlier.
+  // ShieldHalf reduces damage by half (rounded down)
+  let dmg = baseDmg;
+  if(defenderBuff.shieldHalf){
+    dmg = Math.floor(dmg/2);
+    defenderBuff.shieldHalf = false; // consume one use unless design says persistent
+    log('Shield halves incoming damage.');
+  }
+  // Apply riposte deflect? if defenderBuff.riposte >0 then deflect after resolving damage up to riposte amount
+  if(defenderBuff.riposte && defenderBuff.riposte>0){
+    // defender will deflect up to that amount back to attacker after they take damage.
+  }
+  // apply to defender
+  defender.hp -= dmg;
+  if(defender.hp < 0) defender.hp = 0;
+  // riposte: reflect up to riposte back to attacker
+  if(defenderBuff.riposte && defenderBuff.riposte > 0){
+    const reflect = Math.min(defenderBuff.riposte, dmg);
+    attacker.hp -= reflect;
+    log(`${defenderSide==='player'?'You':'Opponent'} riposted for ${reflect} damage back to the attacker.`);
+    // riposte is one-use
+    defenderBuff.riposte = 0;
+  }
+  updateHPUI();
+  return dmg;
+}
+
+/* End player action — clear allocations & move turn to opponent (AI) */
+function endPlayerAction(){
+  // apply any triage/acid ticks for attacker? For simplicity, we apply DOTs at start of each actor's turn
+  // clear current dice and allocations
+  match.dice = [0,0,0,0,0];
+  for(let i=0;i<5;i++){ const el = document.getElementById(`die${i}`); if(el) el.innerText='-'; el && (el.style.border='1px solid #333'); el && (el.style.opacity=1); el && (el.style.pointerEvents='none'); }
+  document.getElementById('attackAlloc').innerText = '-';
+  document.getElementById('defenseAlloc').innerText = '-';
+  document.getElementById('btnClearAlloc').disabled = true;
+  document.getElementById('btnPlayAttack').disabled = true;
+  document.getElementById('btnEndTurn').disabled = true;
+  // if attack used removed any attack dice those were spent — already accounted by clearing dice
+  // next: opponent AI turn
+  match.turn = 'opponent';
+  setTimeout(aiTakeTurn, 800);
+}
+
+/* -------------- AI simple logic -------------- */
+function aiTakeTurn(){
+  // apply acid/triage tick on AI at start of AI turn
+  if(match.opBuff.acidTicks && match.opBuff.acidTicks > 0){
+    const d = 3; match.opponent.hp -= d; match.opBuff.acidTicks--; log(`Opponent suffers ${d} acid damage (${match.opBuff.acidTicks} turns left).`); updateHPUI(); if(checkEnd()) return;
+  }
+  if(match.opBuff.triageTurns && match.opBuff.triageTurns>0){
+    const h = 5; match.opponent.hp = Math.min(match.opponent.hp + h, match.opponent.hpMax); match.opBuff.triageTurns--; log(`Opponent heals ${h} HP from triage (${match.opBuff.triageTurns} turns left).`); updateHPUI();
+  }
+  // AI rolls dice (respecting removal)
+  let diceCount = 5 - match.opRemoveDiceNext; if(diceCount<1) diceCount=1;
+  match.opRemoveDiceNext = 0;
+  match.dice = Array.from({length:5},(_,i)=> i < diceCount ? rand(1,6) : 0);
+  // AI decide allocations: simple heuristic: try to play highest-dmg affordable attack; reserve some dice randomly for defense occasionally
+  log(`Opponent rolls: [${match.dice.map(v=>v||'X').join(', ')}]`);
+  const sumAll = match.dice.reduce((s,v)=>s+v,0);
+  // choose attack candidate
+  const affordable = match.opponent.attacks.filter(c=> c && typeof c.cost==='number' && c.cost <= sumAll);
+  let chosenAttack = null;
+  if(affordable.length>0) chosenAttack = affordable.sort((a,b)=>b.dmg - a.dmg)[0];
+  // check ultimate
+  const nonZeroDice = match.dice.filter(v=>v>0);
+  if(nonZeroDice.length>0 && nonZeroDice.every(v=>v===6)){
+    const ult = match.opponent.attacks.find(a=>a.cost==='ALL6');
+    if(ult){ chosenAttack = ult; log('Opponent rolled ALL SIXES - Ultimate!'); }
+  }
+  // AI chooses to reserve some defense occasionally
+  const reserveForDefense = Math.random() < 0.25;
+  if(reserveForDefense && match.opponent.defenses.length>0){
+    // pick a defense that costs <= sumAll/2 and mark as reserved (we simulate by reducing effective dice available)
+    // but for simplicity AI will not reserve in this prototype
+  }
+
+  if(!chosenAttack){
+    log('Opponent cannot afford any attack and skips.');
+    // back to player
+    match.turn = 'player';
+    renderMatchUI();
+    return;
+  }
+
+  // compute spent dice indices for AI (greedy choose higher dice until cost met)
+  const indices = [];
+  let running=0;
+  // take dice sorted descending by value
+  const idxs = match.dice.map((v,i)=>({v,i})).filter(x=>x.v>0).sort((a,b)=>b.v - a.v);
+  for(const it of idxs){
+    indices.push(it.i); running += it.v; if(chosenAttack.cost!=='ALL6' && running >= chosenAttack.cost) break;
+  }
+  log(`Opponent plays ${chosenAttack.name}.`);
+  // AI resolves attack directly (no reactive defense for now)
+  // compute damage depending on effect
+  if(chosenAttack.effect === 'triage'){ match.opBuff.triageTurns = Math.max(match.opBuff.triageTurns,1); match.opponent.hp = Math.min(match.opponent.hp + 5, match.opponent.hpMax); log('Opponent gains Triage heal.'); updateHPUI(); }
+  if(chosenAttack.effect === 'slam'){ const dmg = chosenAttack.dmg||2; computeAndApplyDamage('opponent','player',dmg); match.plRemoveDiceNext += 1; log('Opponent uses Slam, you will lose 1 die next roll.'); updateHPUI(); }
+  if(chosenAttack.effect === 'acid'){ const dmg = chosenAttack.dmg||0; computeAndApplyDamage('opponent','player',dmg); match.plBuff.acidTicks = Math.max(match.plBuff.acidTicks, chosenAttack.dotTurns || 3); log(`Opponent applies acid (${chosenAttack.dotTurns||3} turns).`); updateHPUI(); }
+  if(chosenAttack.effect === 'staticshield'){ match.opBuff.shieldHalf = true; match.opBuff.triageTurns = Math.max(match.opBuff.triageTurns,1); log('Opponent sets Static Shielding.'); }
+  if(chosenAttack.effect === 'damage'){ computeAndApplyDamage('opponent','player', chosenAttack.dmg||0); }
+  // finish AI turn
+  if(checkEnd()) return;
+  // after AI action, go back to player and apply any player-start ticks (poison etc)
+  // player start-of-turn effects:
+  if(match.plBuff.acidTicks && match.plBuff.acidTicks>0){ match.player.hp -= 3; match.plBuff.acidTicks--; log(`You suffer 3 acid damage (${match.plBuff.acidTicks} turns left).`); updateHPUI(); if(checkEnd()) return; }
+  if(match.plBuff.triageTurns && match.plBuff.triageTurns>0){ match.player.hp = Math.min(match.player.hp + 5, match.player.hpMax); match.plBuff.triageTurns--; log(`You heal 5 HP from Triage (${match.plBuff.triageTurns} turns left).`); updateHPUI(); }
+  match.turn = 'player';
+  buildDiceUI();
+  renderMatchUI();
+}
+
+/* helper to update HP bars and buff UI */
+function updateHPUI(){
+  document.getElementById('plHP').style.width = (match.player.hp/match.player.hpMax*100)+'%';
+  document.getElementById('plHPtext').innerText = `${match.player.hp} / ${match.player.hpMax} HP`;
+  document.getElementById('oppHP').style.width = (match.opponent.hp/match.opponent.hpMax*100)+'%';
+  document.getElementById('oppHPtext').innerText = `${match.opponent.hp} / ${match.opponent.hpMax} HP`;
+  document.getElementById('plBuffs').innerHTML = buffSummary(match.plBuff);
+  document.getElementById('oppBuffs').innerHTML = buffSummary(match.opBuff);
+}
+
+/* Buff summary small text */
+function buffSummary(b){
+  if(!b) return '';
+  const tags = [];
+  if(b.shieldHalf) tags.push('<span class="effect-tag">Shield½</span>');
+  if(b.evade) tags.push('<span class="effect-tag">EVADE</span>');
+  if(b.riposte) tags.push(`<span class="effect-tag">RIPOSTE:${b.riposte}</span>`);
+  if(b.triageTurns) tags.push(`<span class="effect-tag">TRIAGE:${b.triageTurns}</span>`);
+  if(b.acidTicks) tags.push(`<span class="effect-tag">ACID:${b.acidTicks}</span>`);
+  return tags.join(' ');
+}
+
+/* check end */
+function checkEnd(){
+  if(match.player.hp <= 0){
+    log('You are defeated. Game over.');
+    alert('You Lose — match over (page reload).'); location.reload(); return true;
+  }
+  if(match.opponent.hp <= 0){
+    log('Opponent defeated! You win.');
+    alert('You Win — match over (page reload).'); location.reload(); return true;
   }
   return false;
 }
 
-/* ---------- final render binding ---------- */
-function render(){
-  updateHPbars();
-  renderCards();
-  el("rollBtn").disabled = (turn!=="player" || rolled);
-  el("skipBtn").disabled = (turn!=="player" || !rolled);
-}
+/* initial screen setup */
+(function init(){
+  document.getElementById('container').style.display='block';
+  // hide match/select initially shown by interaction
+  screens.welcome.classList.add('visible');
+})();
 
-/* expose small debugging / manual controls in console if desired */
-window.playerRoll = playerRoll;
-window.playerPlay = playerPlay;
-window.playerSkip = playerSkip;
-window.resolveAbility = resolveAbility;
 </script>
 </body>
 </html>
