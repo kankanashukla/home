@@ -2,202 +2,214 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Dice Game Lite ASCII</title>
+  <title>Dice Game Battle</title>
   <style>
-    body { font-family: monospace; background:#111; color:#eee; text-align:center; }
-    h1 { color:#f39c12; }
-    pre { color:#0f0; font-size:12px; }
-    #game { margin-top:20px; }
-    .hero-choice button, .actions button, .abilities button { 
-      margin:5px; padding:10px 20px; border:none; border-radius:8px; cursor:pointer; 
-      background:#333; color:#fff; font-family:monospace;
-    }
-    .hero-choice button:hover, .actions button:hover, .abilities button:hover { background:#555; }
-    .log { background:#000; padding:10px; height:220px; overflow-y:auto; text-align:left; border-radius:8px; color:#0f0; font-size:13px; }
-    .status { margin:10px; }
+    body { font-family: monospace; background:#111; color:#eee; margin:0; padding:0; }
+    h1 { color:#f39c12; text-align:center; margin:10px; }
+    #arena { display:grid; grid-template-rows: 1fr auto 1fr; height:100vh; }
+    .player-area, .opponent-area { display:flex; justify-content:space-between; padding:15px; background:#222; }
     .ascii-art { white-space: pre; font-size:12px; line-height:1.1; color:#f39c12; }
+    .hp { font-size:16px; }
+    #center { display:flex; flex-direction:column; align-items:center; justify-content:center; background:#000; padding:10px; }
+    .log { background:#111; padding:10px; height:150px; width:90%; overflow-y:auto; border-radius:6px; margin-top:10px; font-size:13px; color:#0f0; }
+    .dice { font-size:20px; margin:10px; }
+    .controls button { margin:5px; padding:8px 15px; border:none; border-radius:6px; cursor:pointer; background:#333; color:#fff; font-family:monospace; }
+    .controls button:disabled { background:#555; cursor:not-allowed; }
+    .abilities { display:flex; justify-content:center; flex-wrap:wrap; margin-top:10px; }
+    .abilities button { margin:5px; padding:8px 12px; border:1px solid #555; border-radius:6px; background:#222; color:#fff; min-width:120px; }
+    .abilities button:disabled { color:#666; border-color:#333; }
   </style>
 </head>
 <body>
-  <h1>🎲 Dice Game ASCII Lite 🎲</h1>
+  <h1>🎲 Dice Game Battle 🎲</h1>
 
-  <div id="setup">
+  <div id="setup" style="text-align:center; padding:20px;">
     <p>Choose your hero:</p>
-    <div class="hero-choice">
-      <button onclick="chooseHero('Warrior')">⚔️ Warrior</button>
-      <button onclick="chooseHero('Wizard')">🧙 Wizard</button>
-      <button onclick="chooseHero('Rogue')">🗡️ Rogue</button>
+    <button onclick="chooseHero('Warrior')">⚔️ Warrior</button>
+    <button onclick="chooseHero('Wizard')">🧙 Wizard</button>
+    <button onclick="chooseHero('Rogue')">🗡️ Rogue</button>
+  </div>
+
+  <div id="arena" style="display:none;">
+    <!-- Opponent -->
+    <div class="opponent-area">
+      <div>
+        <div id="opponentName"></div>
+        <div class="hp" id="opponentHP"></div>
+      </div>
+      <div class="ascii-art" id="opponentArt"></div>
+    </div>
+
+    <!-- Center (dice + log) -->
+    <div id="center">
+      <div class="dice" id="diceResult">🎲</div>
+      <div class="controls">
+        <button id="rollBtn" onclick="rollDice()">Roll Dice</button>
+        <button id="endBtn" onclick="endTurn()" disabled>End Turn</button>
+      </div>
+      <div class="log" id="log"></div>
+    </div>
+
+    <!-- Player -->
+    <div class="player-area">
+      <div class="ascii-art" id="playerArt"></div>
+      <div>
+        <div id="playerName"></div>
+        <div class="hp" id="playerHP"></div>
+        <div class="abilities" id="abilityButtons"></div>
+      </div>
     </div>
   </div>
 
-  <div id="game" style="display:none;">
-    <div class="ascii-art" id="playerArt"></div>
-    <div class="status">
-      <div id="playerStatus"></div>
-      <div id="opponentStatus"></div>
-    </div>
-    <div class="actions">
-      <button onclick="rollDice()">🎲 Roll Dice</button>
-      <button onclick="endTurn()">⏭️ End Turn</button>
-    </div>
-    <p>Dice: <span id="diceResult"></span></p>
-    <p>Energy Pool: <span id="energyPool">0</span></p>
-    <div class="abilities" id="abilityButtons"></div>
-    <div class="log" id="log"></div>
-  </div>
+<script>
+const diceSymbols = ["①","②","③","④","⑤","⑥"];
 
-  <script>
-    const heroes = {
-      Warrior: { 
-        hp:30, 
-        art:`  O===[:::::::>\n   ||\n  /  \\\n /____\\`,
-        abilities:[
-          {name:"⚔️ Strike", cost:1, dmg:3},
-          {name:"💥 Power Slam", cost:3, dmg:6},
-          {name:"🔥 ULT: Wrath of Ares", cost:"ALL6", dmg:12}
-        ]},
-      Wizard: { 
-        hp:25, 
-        art:`     *\n    /|\\\n   /_|_\\\n    / \\`,
-        abilities:[
-          {name:"🔥 Fireball", cost:2, dmg:4},
-          {name:"⚡ Lightning Bolt", cost:4, dmg:8},
-          {name:"🌌 ULT: Arcane Cataclysm", cost:"ALL6", dmg:14}
-        ]},
-      Rogue: { 
-        hp:28, 
-        art:`   (\\_._/)\n   ( o.o )\n   > ^ <`,
-        abilities:[
-          {name:"🗡️ Backstab", cost:2, dmg:5},
-          {name:"☠️ Poisoned Dagger", cost:3, dmg:2, effect:"+2 ongoing dmg"},
-          {name:"💀 ULT: Death Mark", cost:"ALL6", dmg:10}
-        ]}
-    };
+const heroes = {
+  Warrior: { 
+    hp:30, art:`  O===[:::::::>\n   ||\n  /  \\\n /____\\`,
+    abilities:[
+      {name:"⚔️ Strike", cost:1, dmg:3},
+      {name:"💥 Power Slam", cost:3, dmg:6},
+      {name:"🔥 ULT Wrath of Ares", cost:"ALL6", dmg:12}
+    ]},
+  Wizard: { 
+    hp:25, art:`     *\n    /|\\\n   /_|_\\\n    / \\`,
+    abilities:[
+      {name:"🔥 Fireball", cost:2, dmg:4},
+      {name:"⚡ Lightning Bolt", cost:4, dmg:8},
+      {name:"🌌 ULT Cataclysm", cost:"ALL6", dmg:14}
+    ]},
+  Rogue: { 
+    hp:28, art:`   (\\_._/)\n   ( o.o )\n   > ^ <`,
+    abilities:[
+      {name:"🗡️ Backstab", cost:2, dmg:5},
+      {name:"☠️ Poison Dagger", cost:3, dmg:2, effect:"poison"},
+      {name:"💀 ULT Death Mark", cost:"ALL6", dmg:10}
+    ]}
+};
 
-    let player, opponent, turn="player", playerDice=[], pool=0, poisonCounter=0;
+let player, opponent, turn="player", playerDice=[], pool=0, poisonCounter=0;
+let rolled=false, acted=false;
 
-    function chooseHero(hero) {
-      player = JSON.parse(JSON.stringify(heroes[hero]));
-      player.name = hero;
-      let oppKeys = Object.keys(heroes).filter(h=>h!==hero);
-      let oppChoice = oppKeys[Math.floor(Math.random()*oppKeys.length)];
-      opponent = JSON.parse(JSON.stringify(heroes[oppChoice]));
-      opponent.name = oppChoice;
-      document.getElementById("setup").style.display="none";
-      document.getElementById("game").style.display="block";
-      document.getElementById("playerArt").innerText = player.art;
-      log(`🎭 You chose ${hero}!\n🤖 Opponent is ${oppChoice}.`);
-      updateStatus();
-    }
+function chooseHero(hero) {
+  player = JSON.parse(JSON.stringify(heroes[hero]));
+  player.name=hero;
+  let oppKeys = Object.keys(heroes).filter(h=>h!==hero);
+  let oppChoice = oppKeys[Math.floor(Math.random()*oppKeys.length)];
+  opponent = JSON.parse(JSON.stringify(heroes[oppChoice]));
+  opponent.name=oppChoice;
+  document.getElementById("setup").style.display="none";
+  document.getElementById("arena").style.display="grid";
+  document.getElementById("playerArt").innerText = player.art;
+  document.getElementById("opponentArt").innerText = opponent.art;
+  document.getElementById("playerName").innerText = "🧑 "+player.name;
+  document.getElementById("opponentName").innerText = "🤖 "+opponent.name;
+  updateStatus();
+  log(`▶️ Battle Start! You are ${player.name} vs ${opponent.name}`);
+}
 
-    function rollDice() {
-      if(turn!=="player"){ log("❌ Not your turn!"); return; }
-      playerDice = Array.from({length:5},()=>Math.floor(Math.random()*6)+1);
-      document.getElementById("diceResult").innerText = playerDice.join(", ");
-      pool = playerDice.filter(v=>v>=4).length;
-      document.getElementById("energyPool").innerText = pool;
-      log(`🎲 You rolled [${playerDice.join(", ")}] → Energy: ${pool}`);
-      if(playerDice.every(v=>v===6)){
-        let ult = player.abilities.find(a=>a.cost==="ALL6");
-        log(`🚀 ${player.name} unleashes ULTIMATE: ${ult.name} for ${ult.dmg} dmg!`);
-        dealDamage(opponent, ult.dmg);
-        return;
-      }
-      showAbilities();
-    }
+function rollDice(){
+  if(turn!=="player"||rolled){ log("❌ You already rolled!"); return; }
+  playerDice = Array.from({length:5},()=>Math.floor(Math.random()*6)+1);
+  pool = playerDice.filter(v=>v>=4).length; // count high dice as energy
+  rolled=true;
+  document.getElementById("diceResult").innerText = playerDice.map(v=>diceSymbols[v-1]).join(" ");
+  log(`🎲 Roll: ${playerDice.join(", ")} → Energy ${pool}`);
+  if(playerDice.every(v=>v===6)){
+    let ult=player.abilities.find(a=>a.cost==="ALL6");
+    useAbility(ult, opponent, true);
+    return;
+  }
+  showAbilities();
+}
 
-    function showAbilities(){
-      let abilityDiv=document.getElementById("abilityButtons");
-      abilityDiv.innerHTML="";
-      player.abilities.forEach(a=>{
-        if(typeof a.cost==="number" && a.cost<=pool){
-          let btn=document.createElement("button");
-          btn.innerText=`${a.name} (Cost ${a.cost}, Dmg ${a.dmg})`;
-          btn.onclick=()=>useAbility(a, opponent);
-          abilityDiv.appendChild(btn);
-        }
-      });
-    }
+function showAbilities(){
+  let div=document.getElementById("abilityButtons");
+  div.innerHTML="";
+  player.abilities.forEach(a=>{
+    let btn=document.createElement("button");
+    btn.innerText=`${a.name} (${typeof a.cost==="number"?a.cost:"ULT"}) [${a.dmg}]`;
+    btn.disabled = acted || (typeof a.cost==="number" && a.cost>pool);
+    btn.onclick=()=>useAbility(a, opponent);
+    div.appendChild(btn);
+  });
+}
 
-    function useAbility(ability, target){
-      log(`⚔️ ${player.name} uses ${ability.name}!`);
-      pool-=ability.cost;
-      document.getElementById("energyPool").innerText = pool;
-      if(ability.effect && ability.effect.includes("poison")) poisonCounter=2;
-      dealDamage(target, ability.dmg);
-      document.getElementById("abilityButtons").innerHTML="";
-    }
+function useAbility(ability, target, force=false){
+  if(acted && !force){ log("❌ Already acted!"); return; }
+  log(`⚔️ ${player.name} uses ${ability.name}!`);
+  if(ability.effect==="poison"){ poisonCounter=2; log("☠️ Poison applied!"); }
+  if(typeof ability.cost==="number") pool-=ability.cost;
+  dealDamage(target, ability.dmg);
+  acted=true;
+  showAbilities();
+  document.getElementById("endBtn").disabled=false;
+}
 
-    function dealDamage(target, dmg){
-      let reduced=0;
-      if(target.name==="Warrior") reduced=Math.floor(Math.random()*3)+1;
-      if(target.name==="Wizard") reduced=Math.floor(Math.random()*2)+1;
-      if(target.name==="Rogue" && Math.random()<0.5){ log(`🌀 ${target.name} evades!`); return; }
-      dmg=Math.max(0,dmg-reduced);
-      if(reduced>0) log(`🛡️ ${target.name} blocks ${reduced} dmg.`);
-      target.hp-=dmg;
-      log(`💢 ${target.name} takes ${dmg} dmg → HP: ${target.hp}`);
-      updateStatus();
-      checkGameOver();
-    }
+function dealDamage(target, dmg){
+  let reduced=0;
+  if(target.name==="Warrior") reduced=Math.floor(Math.random()*3)+1;
+  if(target.name==="Wizard") reduced=Math.floor(Math.random()*2)+1;
+  if(target.name==="Rogue" && Math.random()<0.5){ log(`🌀 ${target.name} evades!`); return; }
+  dmg=Math.max(0,dmg-reduced);
+  if(reduced>0) log(`🛡️ ${target.name} blocks ${reduced}!`);
+  target.hp-=dmg;
+  log(`💢 ${target.name} takes ${dmg} → HP ${target.hp}`);
+  updateStatus();
+  checkGameOver();
+}
 
-    function endTurn(){
-      if(turn==="player"){ 
-        turn="opponent"; 
-        document.getElementById("abilityButtons").innerHTML="";
-        log("🤖 Opponent’s turn...");
-        if(poisonCounter>0){ 
-          log(`☠️ Poison deals 2 dmg to ${opponent.name}!`);
-          opponent.hp-=2; poisonCounter--;
-          updateStatus(); checkGameOver();
-        }
-        setTimeout(aiTurn,1200); 
-      }
-      else { turn="player"; log("▶️ Your turn! Roll dice."); }
-    }
+function endTurn(){
+  if(turn==="player"){
+    if(!rolled){ log("❌ Roll first!"); return; }
+    turn="opponent";
+    rolled=false; acted=false;
+    document.getElementById("abilityButtons").innerHTML="";
+    document.getElementById("endBtn").disabled=true;
+    if(poisonCounter>0){ opponent.hp-=2; poisonCounter--; log(`☠️ Poison deals 2 to ${opponent.name}`); updateStatus(); checkGameOver(); }
+    setTimeout(aiTurn,1200);
+  } else {
+    turn="player";
+    log("▶️ Your turn!");
+  }
+}
 
-    function aiTurn(){
-      playerDice = Array.from({length:5},()=>Math.floor(Math.random()*6)+1);
-      pool = playerDice.filter(v=>v>=4).length;
-      log(`🤖 rolled [${playerDice.join(", ")}] → Energy: ${pool}`);
-      if(playerDice.every(v=>v===6)){
-        let ult = opponent.abilities.find(a=>a.cost==="ALL6");
-        log(`💥 ${opponent.name} uses ULTIMATE: ${ult.name} for ${ult.dmg} dmg!`);
-        dealDamage(player, ult.dmg);
-        endTurn();
-        return;
-      }
-      let usable = opponent.abilities.filter(a=>typeof a.cost==="number" && a.cost<=pool);
-      if(usable.length>0){
-        let chosen = usable.sort((a,b)=>b.dmg-a.dmg)[0];
-        log(`🤖 ${opponent.name} casts ${chosen.name}!`);
-        dealDamage(player, chosen.dmg);
-      } else {
-        log(`🤖 ${opponent.name} has no moves!`);
-      }
-      endTurn();
-    }
+function aiTurn(){
+  playerDice = Array.from({length:5},()=>Math.floor(Math.random()*6)+1);
+  pool = playerDice.filter(v=>v>=4).length;
+  log(`🤖 ${opponent.name} rolls [${playerDice.join(", ")}], Energy ${pool}`);
+  if(playerDice.every(v=>v===6)){
+    let ult=opponent.abilities.find(a=>a.cost==="ALL6");
+    log(`💥 ${opponent.name} uses ${ult.name}!`);
+    dealDamage(player, ult.dmg);
+    endTurn(); return;
+  }
+  let usable=opponent.abilities.filter(a=>typeof a.cost==="number"&&a.cost<=pool);
+  if(usable.length>0){
+    let chosen=usable.sort((a,b)=>b.dmg-a.dmg)[0];
+    log(`🤖 ${opponent.name} uses ${chosen.name}!`);
+    dealDamage(player, chosen.dmg);
+  } else {
+    log(`🤖 ${opponent.name} does nothing.`);
+  }
+  endTurn();
+}
 
-    function updateStatus(){
-      document.getElementById("playerStatus").innerText = `🧑 ${player.name} HP: ${player.hp}`;
-      document.getElementById("opponentStatus").innerText = `🤖 ${opponent.name} HP: ${opponent.hp}`;
-    }
+function updateStatus(){
+  document.getElementById("playerHP").innerText="HP: "+player.hp;
+  document.getElementById("opponentHP").innerText="HP: "+opponent.hp;
+}
 
-    function checkGameOver(){
-      if(player.hp<=0){ showEndScreen("💀 YOU LOSE 💀"); }
-      if(opponent.hp<=0){ showEndScreen("🏆 YOU WIN 🏆"); }
-    }
+function checkGameOver(){
+  if(player.hp<=0){ alert("💀 You Lose!"); location.reload(); }
+  if(opponent.hp<=0){ alert("🏆 You Win!"); location.reload(); }
+}
 
-    function showEndScreen(msg){
-      alert(msg);
-      location.reload();
-    }
-
-    function log(msg){
-      let logBox=document.getElementById("log");
-      logBox.innerHTML+=msg+"<br>";
-      logBox.scrollTop=logBox.scrollHeight;
-    }
-  </script>
+function log(msg){
+  let logBox=document.getElementById("log");
+  logBox.innerHTML+=msg+"<br>";
+  logBox.scrollTop=logBox.scrollHeight;
+}
+</script>
 </body>
 </html>
