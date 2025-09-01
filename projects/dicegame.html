@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dice Throne Lite</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#111; color:#eee; text-align:center; }
+    h1 { color:#f39c12; }
+    #game { margin-top:20px; }
+    .hero-choice button, .actions button, .abilities button { 
+      margin:5px; padding:10px 20px; border:none; border-radius:8px; cursor:pointer; 
+      background:#333; color:#fff; 
+    }
+    .hero-choice button:hover, .actions button:hover, .abilities button:hover { background:#555; }
+    .log { background:#222; padding:10px; height:200px; overflow-y:auto; text-align:left; border-radius:8px; }
+    .status { margin:10px; }
+    .abilities { margin-top:10px; }
+  </style>
+</head>
+<body>
+  <h1>Dice Throne Lite</h1>
+
+  <div id="setup">
+    <p>Choose your hero:</p>
+    <div class="hero-choice">
+      <button onclick="chooseHero('Warrior')">⚔️ Warrior</button>
+      <button onclick="chooseHero('Wizard')">🪄 Wizard</button>
+      <button onclick="chooseHero('Rogue')">🗡️ Rogue</button>
+    </div>
+  </div>
+
+  <div id="game" style="display:none;">
+    <div class="status">
+      <div id="playerStatus"></div>
+      <div id="opponentStatus"></div>
+    </div>
+    <div class="actions">
+      <button onclick="rollDice()">🎲 Roll Dice</button>
+      <button onclick="endTurn()">⏭️ End Turn</button>
+    </div>
+    <p>Dice: <span id="diceResult"></span></p>
+    <p>Energy Pool: <span id="energyPool">0</span></p>
+    <div class="abilities" id="abilityButtons"></div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <script>
+    const heroes = {
+      Warrior: { hp:30, defense:"Block (reduce damage by 1-3)", abilities:[
+        {name:"Strike", cost:1, dmg:3},
+        {name:"Power Slam", cost:3, dmg:6},
+        {name:"Ultimate - Wrath of Ares", cost:"ALL6", dmg:12}
+      ]},
+      Wizard: { hp:25, defense:"Mana Shield (reduce damage by 1-2)", abilities:[
+        {name:"Fireball", cost:2, dmg:4},
+        {name:"Lightning Bolt", cost:4, dmg:8},
+        {name:"Ultimate - Arcane Cataclysm", cost:"ALL6", dmg:14}
+      ]},
+      Rogue: { hp:28, defense:"Evasion (50% chance to avoid all)", abilities:[
+        {name:"Backstab", cost:2, dmg:5},
+        {name:"Poisoned Dagger", cost:3, dmg:2, effect:"+2 ongoing dmg"},
+        {name:"Ultimate - Death Mark", cost:"ALL6", dmg:10}
+      ]}
+    };
+
+    let player, opponent, turn="player", playerDice=[], pool=0;
+
+    function chooseHero(hero) {
+      player = JSON.parse(JSON.stringify(heroes[hero]));
+      player.name = hero;
+      // random AI hero (not the same)
+      let oppKeys = Object.keys(heroes).filter(h=>h!==hero);
+      let oppChoice = oppKeys[Math.floor(Math.random()*oppKeys.length)];
+      opponent = JSON.parse(JSON.stringify(heroes[oppChoice]));
+      opponent.name = oppChoice;
+      document.getElementById("setup").style.display="none";
+      document.getElementById("game").style.display="block";
+      log(`You chose ${hero}. Opponent is ${oppChoice}.`);
+      updateStatus();
+    }
+
+    function rollDice() {
+      if(turn!=="player"){ log("It's not your turn!"); return; }
+      playerDice = Array.from({length:5},()=>Math.floor(Math.random()*6)+1);
+      document.getElementById("diceResult").innerText = playerDice.join(", ");
+      pool = playerDice.filter(v=>v>=4).length; // energy from high rolls
+      document.getElementById("energyPool").innerText = pool;
+      log(`You rolled ${playerDice.join(", ")}. Energy pool: ${pool}`);
+
+      // if all 6s -> ultimate instantly
+      if(playerDice.every(v=>v===6)){
+        let ult = player.abilities.find(a=>a.cost==="ALL6");
+        log(`🔥 ${player.name} unleashes ULTIMATE: ${ult.name} for ${ult.dmg} dmg!`);
+        dealDamage(opponent, ult.dmg);
+        return;
+      }
+      showAbilities();
+    }
+
+    function showAbilities(){
+      let abilityDiv=document.getElementById("abilityButtons");
+      abilityDiv.innerHTML="";
+      player.abilities.forEach(a=>{
+        if(typeof a.cost==="number" && a.cost<=pool){
+          let btn=document.createElement("button");
+          btn.innerText=`${a.name} (Cost ${a.cost}, Dmg ${a.dmg})`;
+          btn.onclick=()=>useAbility(a, opponent);
+          abilityDiv.appendChild(btn);
+        }
+      });
+    }
+
+    function useAbility(ability, target){
+      log(`${player.name} uses ${ability.name} for ${ability.dmg} dmg!`);
+      pool-=ability.cost;
+      document.getElementById("energyPool").innerText = pool;
+      dealDamage(target, ability.dmg);
+      document.getElementById("abilityButtons").innerHTML=""; // clear buttons after use
+    }
+
+    function dealDamage(target, dmg){
+      // defense check
+      let reduced=0;
+      if(target.name==="Warrior") reduced=Math.floor(Math.random()*3)+1;
+      if(target.name==="Wizard") reduced=Math.floor(Math.random()*2)+1;
+      if(target.name==="Rogue" && Math.random()<0.5){ log(`${target.name} evades!`); return; }
+      dmg=Math.max(0,dmg-reduced);
+      if(reduced>0) log(`${target.name} defends and reduces ${reduced} dmg.`);
+      target.hp-=dmg;
+      log(`${target.name} takes ${dmg} dmg. (HP left: ${target.hp})`);
+      updateStatus();
+      checkGameOver();
+    }
+
+    function endTurn(){
+      if(turn==="player"){ 
+        turn="opponent"; 
+        document.getElementById("abilityButtons").innerHTML="";
+        log("Opponent's turn..."); 
+        setTimeout(aiTurn,1200); 
+      }
+      else { turn="player"; log("Your turn! Roll dice."); }
+    }
+
+    function aiTurn(){
+      playerDice = Array.from({length:5},()=>Math.floor(Math.random()*6)+1);
+      pool = playerDice.filter(v=>v>=4).length;
+      log(`Opponent rolled ${playerDice.join(", ")}. Energy: ${pool}`);
+      // ultimate check
+      if(playerDice.every(v=>v===6)){
+        let ult = opponent.abilities.find(a=>a.cost==="ALL6");
+        log(`🔥 ${opponent.name} unleashes ULTIMATE: ${ult.name} for ${ult.dmg} dmg!`);
+        dealDamage(player, ult.dmg);
+        endTurn();
+        return;
+      }
+      // pick strongest affordable
+      let usable = opponent.abilities.filter(a=>typeof a.cost==="number" && a.cost<=pool);
+      if(usable.length>0){
+        let chosen = usable.sort((a,b)=>b.dmg-a.dmg)[0];
+        log(`${opponent.name} uses ${chosen.name} for ${chosen.dmg} dmg.`);
+        dealDamage(player, chosen.dmg);
+      } else {
+        log(`${opponent.name} cannot afford an attack.`);
+      }
+      endTurn();
+    }
+
+    function updateStatus(){
+      document.getElementById("playerStatus").innerText = `🧑 ${player.name} HP: ${player.hp}`;
+      document.getElementById("opponentStatus").innerText = `🤖 ${opponent.name} HP: ${opponent.hp}`;
+    }
+
+    function checkGameOver(){
+      if(player.hp<=0){ alert("You Lose!"); location.reload(); }
+      if(opponent.hp<=0){ alert("You Win!"); location.reload(); }
+    }
+
+    function log(msg){
+      let logBox=document.getElementById("log");
+      logBox.innerHTML+=msg+"<br>";
+      logBox.scrollTop=logBox.scrollHeight;
+    }
+  </script>
+</body>
+</html>
